@@ -142,7 +142,7 @@ d_total$`FN02--2`$plant_ID[15] <- 'FN02--2'
 d_total$`FN02--2`
 (d_total$`FN02--4` <- d_total$`FN02--4`[-1, ])
 
-
 d_total[which(unlist(lapply(d_total, nrow), use.names = F) != 15)]
 
+length(d_total)
 
