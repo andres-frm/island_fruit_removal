@@ -6,49 +6,15 @@ sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2',
 
 source('functions_mod_diagnostics.r')
 
-coords<- read_xlsx('ilhas2025.xlsx', 
-                   sheet = 1, col_names = T, 
-                   na = 'NA')[, c('lat', 'long', 'island')]
+all_data <- readRDS('data_structure_simulation.rds')
 
-coords <- lapply(split(coords, coords$island), 
-                 function(x) x[1, ])
-
-coords <- do.call('rbind', coords)
-
-# shortest distance over the Earth's surface (great-circle distance).
-dist_matrix <- distm(coords[, c('long', 'lat')], fun = distHaversine)
-dimnames(dist_matrix) <- list(coords$island, 
-                              coords$island)
-
-dist_matrix <- dist_matrix/max(dist_matrix)
-
-
-# ====  indexes and data structure
-d <- read_xlsx('ilhas2025.xlsx', sheet = 1, col_names = T, na = 'NA')
-
-sim_data <- 
-  d[, c("country", "island", "grid",   
-        "realm", "ecoregion", "biome", 
-        "island_type")]
-
-sim_data <- 
-  lapply(split(sim_data, sim_data$grid), FUN = 
-           function(x) {
-             x <- x[1:15, ]
-             x$plant <- rep(1, 15)
-             x
-           })
-
-sim_data <- do.call('rbind', sim_data)
-
-for (i in 1:7) sim_data[[i]] <- as.numeric(as.factor(sim_data[[i]]))
-
-sim_data$plant <- 1:nrow(sim_data)
-tail(sim_data)
+sim_data <- all_data$data_structure
+codes <- all_data$labels
+dist_matrix <- all_data$dist_mat
 
 # ===========#
 
-mu_island <- rnorm(nrow(coords), 0, 2) # mu par island
+mu_island <- rnorm(nrow(dist_matrix), 0, 2) # mu par island
 
 # GP islands 
 rho <- 0.25 # Rate of covariance decline between points
@@ -79,8 +45,8 @@ eigen(cov_mat)$values
 
 # spatial correlated residuals
 res_cor_res <- 
-  mvrnorm(nrow(coords), 
-        mu = rep(0, nrow(coords)), 
+  mvrnorm(nrow(dist_matrix), 
+        mu = rep(0, nrow(dist_matrix)), 
         Sigma = cov_mat)
 
 dim(res_cor_res)
@@ -93,41 +59,134 @@ islands <-
 islands_pars <- islands[1, ] # correlated parameters
 plants <- rnorm(nrow(sim_data), 0, 0.01) # pars plant
 grid <- rnorm(max(sim_data$grid), 0, 0.015) # pars grid
-country <- rnorm(max(sim_data$country), # pars countries
-                 0, 0.015)
+country <- rnorm(max(sim_data$country2), 0, 1) # pars countries
+                 
 type_island <- c(1.2, -1, 0) # par type of island
 
 # continuous variables
 sim_alt <- 
-  do.call('rbind', 
-          lapply(1:nrow(sim_data), FUN = 
-                   function(x) {
-                     
-                     i <- sim_data$island_type[x]
-                     mu <- c(1.25, -0.5, 0.8)[i]
-                     alt <- rnorm(1, mu, 0.25)
-                     tibble(altitude = alt, 
-                            island_type = i)
-                     
-                   }))
+  lapply(1, FUN = 
+           function(x) {
+             
+             d <- unique(sim_data[, c("island", "island_type")])
+             
+             par_IT <- 
+               sapply(1:43, FUN = 
+                        function(x) {
+                          i <- d$island_type[x]
+                          # effect of island type
+                          # on altitude
+                          mu <- c(1.25, -0.5, 0.8)[i] 
+                          rnorm(1, mu, 0.5)
+                        })
+             
+             d$par <- par_IT
+             
+             island_alt <- 
+               lapply(1:43, FUN = 
+                        function(j) {
+                          island <- d$island[j]
+                          island_type <- d$island_type[j]
+                          par <- d$par[j]
+                          
+                          indx <- 
+                            which(sim_data$island == island &
+                                    sim_data$island_type == island_type)
+                          
+                          tibble(index = indx, 
+                                 island_alt = par, 
+                                 island = island, 
+                                 island_type = island_type)
+                          
+                        })
+             do.call('rbind', island_alt) 
+           })[[1]]
 
-sim_data$altitude <- sim_alt$altitude
+sim_data$altitude[sim_alt$index] <- sim_alt$island_alt
 
-beta_alt <- -0.8
+beta_alt <- -1.8 # slope altitude
 
 # beta parameters
+
+isolation_vegetation <-
+  lapply(1, FUN = 
+           function(x) {
+             
+             d <- unique(sim_data[, c("island", "island_type")])
+             
+             par_iso <- 
+               sapply(1:43, FUN = 
+                        function(x) {
+                          i <- d$island_type[x]
+                          # effect of island type
+                          # on isolation
+                          mu <- c(-0.8, 0.25, 1.1)[i] 
+                          rnorm(1, mu, 0.5)
+                        })
+             
+             d$par <- par_iso
+             d$native_vegetation <- 
+               rnorm(nrow(d), d$par * 0.5, 0.5)
+             
+             island_isolation <- 
+               lapply(1:43, FUN = 
+                        function(j) {
+                          island <- d$island[j]
+                          island_type <- d$island_type[j]
+                          isolation <- d$par[j]
+                          vegetation <- d$native_vegetation[j]
+                          
+                          indx <- 
+                            which(sim_data$island == island &
+                                    sim_data$island_type == island_type)
+                          
+                          tibble(index = indx, 
+                                 isolation = isolation, 
+                                 native_vegetation = vegetation,
+                                 island = island, 
+                                 island_type = island_type)
+                          
+                        })
+             do.call('rbind', island_isolation) 
+           })[[1]]
+
+sim_data$island_isolation <- NA
+sim_data$island_isolation[isolation_vegetation$index] <- 
+  isolation_vegetation$isolation
+
+sim_data$native_vegetation <- NA
+sim_data$native_vegetation[isolation_vegetation$index] <- 
+  isolation_vegetation$native_vegetation
+
+# native vegetation --> bush cover
+
+bush_cover <- 
+  rnorm(nrow(sim_data), sim_data$native_vegetation * 0.25, 0.5)
+
+sim_data$bush_cover <- bush_cover
+
+beta_nativeV <- 0.8 # slope native vegetation
+beta_isolation <- 0.01 # slope island isolation
+beta_bush <- 1.4
+
 
 fruit_removal <- 
   sapply(1:nrow(sim_data), FUN = 
          function(x) {
-           p <- sim_data$plant[x]
+           p <- sim_data$plant_ID[x]
            g <- sim_data$grid[x]
            i <- sim_data$island[x]
-           c <- sim_data$country[x]
+           c <- sim_data$country2[x]
            TI <- sim_data$island_type[x]
            alt <- sim_data$altitude[x]
+           iso <- sim_data$island_isolation[x]
+           NV <- sim_data$native_vegetation[x]
+           BC <- sim_data$bush_cover[x]
            rbinom(1, 15, # available fruit per bush 
                   inv_logit(alt * beta_alt + 
+                            iso * beta_isolation +
+                            NV * beta_nativeV +
+                            BC * beta_bush +
                             plants[p] + 
                             grid[g] + 
                             islands_pars[i] +
@@ -139,25 +198,26 @@ plot(density(sim_data$fruit_removal))
 plot(sim_data$altitude, 
      sim_data$fruit_removal)
 
-coords$island <- as.factor(coords$island)
-levels(coords$island) == colnames(dist_matrix)
-
 dat <- 
   list(N = nrow(sim_data), 
        N_islands = max(sim_data$island),
        N_grid = max(sim_data$grid),
-       N_plant = max(sim_data$plant), 
-       N_country = max(sim_data$country),
+       N_plant = max(sim_data$plant_ID), 
+       N_country = max(sim_data$country2),
        N_type_island = max(sim_data$island_type),
        altitude = sim_data$altitude,
+       island_isolation = sim_data$island_isolation, 
+       native_cover = sim_data$native_vegetation, 
+       bush_cover = sim_data$bush_cover,
        fruit_removal = sim_data$fruit_removal,
        type_island = sim_data$island_type,
-       country_ID = sim_data$country,
+       country_ID = sim_data$country2,
        islands_ID = sim_data$island,
        grid_ID = sim_data$grid, 
-       plant_ID = sim_data$plant,
+       plant_ID = sim_data$plant_ID,
        dist_islands = dist_matrix)
 
+# ====== Effect altitude =====
 
 cat(file = 'generative_simulation.stan', 
     '
@@ -198,6 +258,9 @@ cat(file = 'generative_simulation.stan',
       // propulation effects
       array[N] int type_island;
       vector[N] altitude;
+      vector[N] island_isolation;
+      vector[N] native_cover;
+      vector[N] bush_cover;
       // group level effects
       array[N] int islands_ID;
       array[N] int country_ID;
@@ -215,6 +278,9 @@ cat(file = 'generative_simulation.stan',
       // population effects
       vector[N_type_island] TI;
       real beta_alt;
+      // real beta_iso;
+      // beta beta_NV;
+      // beta beta_bush;
     
       // group level effects
       // GP island
@@ -274,6 +340,9 @@ cat(file = 'generative_simulation.stan',
       // Population effects
       TI ~ normal(0, 1);
       beta_alt ~ normal(0, 1);
+      // beta_iso ~ normal(0, 1);
+      // beta_NV ~ normal(0, 1);
+      // beta_bush ~ normal(0, 1);
       
       // GP islands
       eta ~ exponential(4);
@@ -299,6 +368,9 @@ cat(file = 'generative_simulation.stan',
                                inv_logit(
                                alpha +
                                beta_alt * altitude +
+                               // beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
                                TI[type_island] +
                                country[country_ID] +
                                island[islands_ID] +
@@ -314,6 +386,9 @@ cat(file = 'generative_simulation.stan',
                              inv_logit(
                                alpha +
                                beta_alt * altitude +
+                               // beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
                                TI[type_island] +
                                country[country_ID] +
                                island[islands_ID] +
@@ -331,7 +406,7 @@ mod_gen_sim <-
   fit_gen_sim$sample(
     data = dat,
     iter_warmup = 500, 
-    iter_sampling = 2e3,
+    iter_sampling = 1e3,
     thin = 3,
     chains = 4, 
     parallel_chains = 4,
@@ -347,7 +422,6 @@ plot(density(dat$fruit_removal), main = '',
      xlab = 'Simulated fruit removal')
 for (i in 1:200) lines(density(ppcheck[i, ]), lwd = 0.1)
 lines(density(dat$fruit_removal), lwd = 2, col = 'red')
-
 
 posterior_pars <- 
   mod_gen_sim$draws(c('alpha', 
@@ -441,11 +515,309 @@ compare_posterior(posterior_pars$grid,
 
 # === Population effects 
 
+# type of island
 compare_posterior(posterior_pars$TI, 
                   type_island, 
                   xlab = 'Type of island', 
                   ylab = 'Posterior mean', 
                   main = 'Type of island parameters')
 
-plot(density(posterior_pars$beta_alt$beta_alt))
+# effect of altitude
+plot(density(posterior_pars$beta_alt$beta_alt), 
+     main = '', xlab = expression(beta['altitude']))
 abline(v = beta_alt, col = 'red', lwd = 2)
+
+
+# ===== Second test =====
+
+# island isolation --> fruit removal
+
+
+cat(file = 'generative_simulation.stan', 
+    '
+    functions{
+    
+      matrix GP_quadratic(matrix x, 
+                          real eta, 
+                          real rho, 
+                          real delta) {
+                          
+                          int N = dims(x)[1];
+                          matrix[N, N] K;
+                          matrix[N, N] L_K;
+                          
+                          for (i in 1:(N-1)) {
+                            K[i, i] = eta + delta;
+                            for (j in (i+1):N) {
+                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[j, i] = K[i, j];
+                            }
+                          }
+                          
+                          K[N, N] = eta + delta;
+                          L_K = cholesky_decompose(K);
+                          return L_K;
+                          }
+    }
+    
+    data {
+      int N;
+      int N_islands;
+      int N_country;
+      int N_plant;
+      int N_grid;
+      int N_type_island;
+      // response
+      array[N] int fruit_removal;
+      // propulation effects
+      array[N] int type_island;
+      vector[N] altitude;
+      vector[N] island_isolation;
+      vector[N] native_cover;
+      vector[N] bush_cover;
+      // group level effects
+      array[N] int islands_ID;
+      array[N] int country_ID;
+      array[N] int grid_ID;
+      array[N] int plant_ID;
+      // matrix of island distances (std)
+      matrix[N_islands, N_islands] dist_islands;
+    }
+    
+    parameters {
+      
+      // intercept
+      real alpha;
+      
+      // population effects
+      vector[N_type_island] z_TI;
+      real mu_TI;
+      real<lower = 0> sigma_TI;
+      //real beta_alt;
+      real beta_iso;
+      // beta beta_NV;
+      // beta beta_bush;
+    
+      // group level effects
+      // GP island
+      vector[N_islands] z_islands;
+      real<lower = 0> eta;
+      real<lower = 0> rho;
+      
+      // country
+      vector[N_country] z_country;
+      real mu_country;
+      real<lower = 0> sigma_country;
+      
+      // grid
+      vector[N_grid] z_grid;
+      real mu_grid;
+      real<lower = 0> sigma_grid;
+      
+      // plant
+      vector[N_plant] z_plant;
+      real mu_plant;
+      real<lower = 0> sigma_plant;
+      
+    }
+    
+    transformed parameters {
+      
+      // Population effects
+      
+      vector[N_type_island] TI;
+      TI = mu_TI + z_TI * sigma_TI;
+      
+      // group level effects
+      // GP islands
+      vector[N_islands] island;
+      matrix[N_islands, N_islands] L_K_islands;
+      L_K_islands = GP_quadratic(dist_islands,
+                                 eta, 
+                                 rho, 
+                                 0.001);
+      island = L_K_islands * z_islands;
+      
+      // country
+      vector[N_country] country;
+      country = mu_country + z_country * sigma_country;
+      
+      // grid
+      vector[N_grid] grid;
+      grid = mu_grid + z_grid * sigma_grid;
+      
+      // plant
+      vector[N_plant] plant;
+      plant = mu_plant + z_plant * sigma_plant;
+    }
+    
+    model {
+      
+      // intercept and dispersion
+      alpha ~ normal(0, 1);
+      
+      // Population effects
+      z_TI ~ normal(0, 1);
+      mu_TI ~ normal(0, 0.5);
+      sigma_TI ~ exponential(1);
+      //beta_alt ~ normal(0, 1);
+      beta_iso ~ normal(0, 1);
+      // beta_NV ~ normal(0, 1);
+      // beta_bush ~ normal(0, 1);
+      
+      // GP islands
+      eta ~ exponential(4);
+      rho ~ exponential(1);
+      z_islands ~ normal(0, 1);
+      
+      // country
+      z_country ~ normal(0, 1);
+      mu_country ~ normal(0, 0.5);
+      sigma_country ~ exponential(1);
+      
+      // grid
+      z_grid ~ normal(0, 1);
+      mu_grid ~ normal(0, 0.5);
+      sigma_grid ~ exponential(1);
+      
+      // plant
+      z_plant ~ normal(0, 1);
+      mu_plant ~ normal(0, 0.5);
+      sigma_plant ~ exponential(1);
+      
+      fruit_removal ~ binomial(15, 
+                               inv_logit(
+                               alpha +
+                               // beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    
+    generated quantities {
+      array[N] int ppcheck;
+      
+      ppcheck = binomial_rng(15, 
+                             inv_logit(
+                               alpha +
+                               //beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    ')
+
+
+file <- paste0(getwd(), '/generative_simulation.stan')
+fit_gen_sim <- cmdstan_model(file, compile = T)
+
+mod_gen_sim <- 
+  fit_gen_sim$sample(
+    data = dat,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 5,
+    chains = 4, 
+    parallel_chains = 4,
+    seed = 06231993
+  )
+
+summary_mod_gen <- mod_gen_sim$summary()
+mod_diagnostics(mod_gen_sim, summary_mod_gen)
+summary_mod_gen[which(summary_mod_gen$ess_tail < 500), ]
+
+ppcheck <- mod_gen_sim$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$fruit_removal), main = '', 
+     xlab = 'Simulated fruit removal')
+for (i in 1:200) lines(density(ppcheck[i, ]), lwd = 0.1)
+lines(density(dat$fruit_removal), lwd = 2, col = 'red')
+
+posterior_pars <- 
+  mod_gen_sim$draws(c('alpha', 
+                      'beta_iso',
+                      'TI',
+                      'country', 
+                      'island', 
+                      'grid', 
+                      'plant'), 
+                    format = 'df')
+
+
+posterior_pars <- 
+  lapply(c('alpha', 'beta_iso', 'TI', 
+           'country', 'island', 
+           'grid', 'plant'), FUN = 
+           function(x) {
+             posterior_pars[, grep(x, colnames(posterior_pars))]
+           })
+
+names(posterior_pars) <- c('alpha', 'beta_iso', 'TI', 
+                           'country', 'island', 
+                           'grid', 'plant')
+
+# ==== Parameter recovery =======
+
+# === Random effects 
+
+# countries 
+
+compare_posterior(posterior_pars$country, 
+                  country, 
+                  xlab = 'Countries', 
+                  ylab = 'Posterior mean', 
+                  main = 'Country parameters')
+
+
+
+
+# islands 
+
+compare_posterior(posterior_pars$island, 
+                  islands_pars, 
+                  xlab = 'Islands', 
+                  ylab = 'Posterior mean', 
+                  main = 'Islands parameters')
+
+# plants 
+
+compare_posterior(posterior_pars$plant, 
+                  plants, 
+                  xlab = 'Plants', 
+                  ylab = 'Posterior mean', 
+                  main = 'PLant parameters')
+
+# grids
+
+compare_posterior(posterior_pars$grid, 
+                  grid, 
+                  xlab = 'Grid', 
+                  ylab = 'Posterior mean', 
+                  main = 'Grid parameters')
+
+
+# === Population effects 
+
+#type of island
+compare_posterior(posterior_pars$TI,
+                  type_island,
+                  xlab = 'Type of island',
+                  ylab = 'Posterior mean',
+                  main = 'Type of island parameters')
+
+# effect of altitude
+plot(density(posterior_pars$beta_iso$beta_iso), 
+     main = '', xlab = expression(beta['altitude']))
+abline(v = beta_isolation, col = 'red', lwd = 2)
