@@ -113,36 +113,75 @@ str(d)
 
 d[] <- lapply(d, function(x) if (is.character(x)) as.factor(x) else x)
 
+d <- split(d, d$plant_ID)
+
+# islands where plant ID has to be corrected
+d[which(unlist(lapply(d, nrow), use.names = F) != 15)]
+
+d$`FN01--2` <- 
+  rbind(d$`FN01--2`, d$`FN01--4`[1, ])
+
+d$`FN01--2`$plant_ID[15] <- 'FN01--2'
+d$`FN01--2`
+(d$`FN01--4` <- d$`FN01--4`[-1, ])
+
+
+d$`FN02--2` <- 
+  rbind(d$`FN02--2`, d$`FN02--4`[1, ])
+d$`FN02--2`$plant_ID[15] <- 'FN02--2'
+d$`FN02--2`
+(d$`FN02--4` <- d$`FN02--4`[-1, ])
+
+d[which(unlist(lapply(d, nrow), use.names = F) != 15)]
+
+
 # ===== Data 1: total removal =========
 
-d_total <- d
+d_total <- 
+  lapply(d, FUN = 
+         function(x) {
+           remotion <- sum(x$fate_bin)
+           indx <- c(grep('fate_bin', colnames(x)), 
+                     grep('frugivore', colnames(x)), 
+                     grep('fruit_ID', colnames(x)))
+           x$lat <- x$lat[1]
+           x$long <- x$long[1]
+           x <- unique(x[, -c(indx)])
+           x$total <- 15
+           x$remotion <- remotion
+           x
+         })
 
-d_total <- split(d_total, d_total$plant_ID)
+d_total[unlist(lapply(d_total, function(x) nrow(x) > 1), use.names = F)]
 
-d_total[which(unlist(lapply(d_total, nrow), use.names = F) != 15)]
+d_total <- do.call('rbind', d_total)
 
-d_total$`FN01--2` <- 
-  rbind(d_total$`FN01--2`, d_total$`FN01--4`[1, ])
+unique(d_total$plant_invasive_rank)
 
-d_total$`FN01--2`$plant_ID[15] <- 'FN01--2'
-d_total$`FN01--2`
-(d_total$`FN01--4` <- d_total$`FN01--4`[-1, ])
+apply(d_total, 2, FUN = function(x) mean(is.na(x)))
+
+colnames(d_total)
+
+d_total$island_type[which(d_total$island == 'Sicily' &
+                            d_total$island_type == 'Coraline')] <- 'Continental'
+
+codes1 <- d_total[, c("country2", "island", "grid", "plant_ID", 
+                     "realm", "ecoregion", "biome", "island_type")]
+
+codes[] <- lapply(codes1, function(x) as.numeric(as.factor(x)))
 
 
-d_total$`FN01--2` <- 
-  rbind(d_total$`FN01--2`, d_total$`FN01--4`[1, ])
-
-d_total$`FN01--2`$plant_ID[15] <- 'FN01--2'
-d_total$`FN01--2` 
+saveRDS(list(data_structure = codes,
+             labels = codes1, 
+             dist_mat = islands_dist), 'data_structure_simulation.rds')
 
 
-d_total$`FN02--2` <- 
-  rbind(d_total$`FN02--2`, d_total$`FN02--4`[1, ])
-d_total$`FN02--2`$plant_ID[15] <- 'FN02--2'
-d_total$`FN02--2`
-(d_total$`FN02--4` <- d_total$`FN02--4`[-1, ])
+View(d_total)
 
-d_total[which(unlist(lapply(d_total, nrow), use.names = F) != 15)]
+# ==============
 
-length(d_total)
+list(total = d_total)
+
+
+
 
