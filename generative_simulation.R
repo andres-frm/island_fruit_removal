@@ -61,7 +61,7 @@ plants <- rnorm(nrow(sim_data), 0, 0.01) # pars plant
 grid <- rnorm(max(sim_data$grid), 0, 0.015) # pars grid
 country <- rnorm(max(sim_data$country2), 0, 1) # pars countries
                  
-type_island <- c(1.2, -1, 0) # par type of island
+type_island <- c(-0.5, 0.75, 0.25) # par type of island
 
 # continuous variables
 sim_alt <- 
@@ -76,7 +76,7 @@ sim_alt <-
                           i <- d$island_type[x]
                           # effect of island type
                           # on altitude
-                          mu <- c(1.25, -0.5, 0.8)[i] 
+                          mu <- c(-0.5, 1.25, 0.8)[i] 
                           rnorm(1, mu, 0.5)
                         })
              
@@ -194,9 +194,9 @@ fruit_removal <-
                             type_island[TI]))
          }) 
 sim_data$fruit_removal <- fruit_removal
-plot(density(sim_data$fruit_removal))
 plot(sim_data$altitude, 
      sim_data$fruit_removal)
+plot(density(sim_data$fruit_removal))
 
 dat <- 
   list(N = nrow(sim_data), 
@@ -528,9 +528,7 @@ plot(density(posterior_pars$beta_alt$beta_alt),
 abline(v = beta_alt, col = 'red', lwd = 2)
 
 
-# ===== Second test =====
-
-# island isolation --> fruit removal
+# ===== Effect type of island =====
 
 
 cat(file = 'generative_simulation.stan', 
@@ -590,11 +588,9 @@ cat(file = 'generative_simulation.stan',
       real alpha;
       
       // population effects
-      vector[N_type_island] z_TI;
-      real mu_TI;
-      real<lower = 0> sigma_TI;
+      vector[N_type_island] TI;
       //real beta_alt;
-      real beta_iso;
+      // real beta_iso;
       // beta beta_NV;
       // beta beta_bush;
     
@@ -625,8 +621,6 @@ cat(file = 'generative_simulation.stan',
       
       // Population effects
       
-      vector[N_type_island] TI;
-      TI = mu_TI + z_TI * sigma_TI;
       
       // group level effects
       // GP islands
@@ -657,11 +651,9 @@ cat(file = 'generative_simulation.stan',
       alpha ~ normal(0, 1);
       
       // Population effects
-      z_TI ~ normal(0, 1);
-      mu_TI ~ normal(0, 0.5);
-      sigma_TI ~ exponential(1);
+      TI ~ normal(0, 1);
       //beta_alt ~ normal(0, 1);
-      beta_iso ~ normal(0, 1);
+      // beta_iso ~ normal(0, 1);
       // beta_NV ~ normal(0, 1);
       // beta_bush ~ normal(0, 1);
       
@@ -689,7 +681,7 @@ cat(file = 'generative_simulation.stan',
                                inv_logit(
                                alpha +
                                // beta_alt * altitude +
-                               beta_iso * island_isolation +
+                               // beta_iso * island_isolation +
                                // beta_NV * native_cover +
                                // beta_bush * bush_cover +
                                TI[type_island] +
@@ -707,7 +699,7 @@ cat(file = 'generative_simulation.stan',
                              inv_logit(
                                alpha +
                                //beta_alt * altitude +
-                               beta_iso * island_isolation +
+                               // beta_iso * island_isolation +
                                // beta_NV * native_cover +
                                // beta_bush * bush_cover +
                                TI[type_island] +
@@ -747,7 +739,7 @@ lines(density(dat$fruit_removal), lwd = 2, col = 'red')
 
 posterior_pars <- 
   mod_gen_sim$draws(c('alpha', 
-                      'beta_iso',
+                      #'beta_iso',
                       'TI',
                       'country', 
                       'island', 
@@ -757,14 +749,14 @@ posterior_pars <-
 
 
 posterior_pars <- 
-  lapply(c('alpha', 'beta_iso', 'TI', 
+  lapply(c('alpha',  'TI', 
            'country', 'island', 
            'grid', 'plant'), FUN = 
            function(x) {
              posterior_pars[, grep(x, colnames(posterior_pars))]
            })
 
-names(posterior_pars) <- c('alpha', 'beta_iso', 'TI', 
+names(posterior_pars) <- c('alpha', 'TI', 
                            'country', 'island', 
                            'grid', 'plant')
 
@@ -817,7 +809,3 @@ compare_posterior(posterior_pars$TI,
                   ylab = 'Posterior mean',
                   main = 'Type of island parameters')
 
-# effect of altitude
-plot(density(posterior_pars$beta_iso$beta_iso), 
-     main = '', xlab = expression(beta['altitude']))
-abline(v = beta_isolation, col = 'red', lwd = 2)
