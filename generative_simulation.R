@@ -125,6 +125,7 @@ isolation_vegetation <-
                         })
              
              d$par <- par_iso
+             # isolation --> native vegetation
              d$native_vegetation <- 
                rnorm(nrow(d), d$par * 0.5, 0.5)
              
@@ -168,7 +169,6 @@ sim_data$bush_cover <- bush_cover
 beta_nativeV <- 0.8 # slope native vegetation
 beta_isolation <- 0.01 # slope island isolation
 beta_bush <- 1.4
-
 
 fruit_removal <- 
   sapply(1:nrow(sim_data), FUN = 
@@ -809,3 +809,892 @@ compare_posterior(posterior_pars$TI,
                   ylab = 'Posterior mean',
                   main = 'Type of island parameters')
 
+
+
+#======= Effect island isolation ======
+
+cat(file = 'generative_simulation.stan', 
+    '
+    functions{
+    
+      matrix GP_quadratic(matrix x, 
+                          real eta, 
+                          real rho, 
+                          real delta) {
+                          
+                          int N = dims(x)[1];
+                          matrix[N, N] K;
+                          matrix[N, N] L_K;
+                          
+                          for (i in 1:(N-1)) {
+                            K[i, i] = eta + delta;
+                            for (j in (i+1):N) {
+                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[j, i] = K[i, j];
+                            }
+                          }
+                          
+                          K[N, N] = eta + delta;
+                          L_K = cholesky_decompose(K);
+                          return L_K;
+                          }
+    }
+    
+    data {
+      int N;
+      int N_islands;
+      int N_country;
+      int N_plant;
+      int N_grid;
+      int N_type_island;
+      // response
+      array[N] int fruit_removal;
+      // propulation effects
+      array[N] int type_island;
+      vector[N] altitude;
+      vector[N] island_isolation;
+      vector[N] native_cover;
+      vector[N] bush_cover;
+      // group level effects
+      array[N] int islands_ID;
+      array[N] int country_ID;
+      array[N] int grid_ID;
+      array[N] int plant_ID;
+      // matrix of island distances (std)
+      matrix[N_islands, N_islands] dist_islands;
+    }
+    
+    parameters {
+      
+      // intercept
+      real alpha;
+      
+      // population effects
+      vector[N_type_island] TI;
+      // real beta_alt;
+      real beta_iso;
+      // beta beta_NV;
+      // beta beta_bush;
+    
+      // group level effects
+      // GP island
+      vector[N_islands] z_islands;
+      real<lower = 0> eta;
+      real<lower = 0> rho;
+      
+      // country
+      vector[N_country] z_country;
+      real mu_country;
+      real<lower = 0> sigma_country;
+      
+      // grid
+      vector[N_grid] z_grid;
+      real mu_grid;
+      real<lower = 0> sigma_grid;
+      
+      // plant
+      vector[N_plant] z_plant;
+      real mu_plant;
+      real<lower = 0> sigma_plant;
+      
+    }
+    
+    transformed parameters {
+      
+      // Population effects
+      
+      
+      // group level effects
+      // GP islands
+      vector[N_islands] island;
+      matrix[N_islands, N_islands] L_K_islands;
+      L_K_islands = GP_quadratic(dist_islands,
+                                 eta, 
+                                 rho, 
+                                 0.001);
+      island = L_K_islands * z_islands;
+      
+      // country
+      vector[N_country] country;
+      country = mu_country + z_country * sigma_country;
+      
+      // grid
+      vector[N_grid] grid;
+      grid = mu_grid + z_grid * sigma_grid;
+      
+      // plant
+      vector[N_plant] plant;
+      plant = mu_plant + z_plant * sigma_plant;
+    }
+    
+    model {
+      
+      // intercept and dispersion
+      alpha ~ normal(0, 1);
+      
+      // Population effects
+      TI ~ normal(0, 1);
+      //beta_alt ~ normal(0, 1);
+      beta_iso ~ normal(0, 1);
+      // beta_NV ~ normal(0, 1);
+      // beta_bush ~ normal(0, 1);
+      
+      // GP islands
+      eta ~ exponential(4);
+      rho ~ exponential(1);
+      z_islands ~ normal(0, 1);
+      
+      // country
+      z_country ~ normal(0, 1);
+      mu_country ~ normal(0, 0.5);
+      sigma_country ~ exponential(1);
+      
+      // grid
+      z_grid ~ normal(0, 1);
+      mu_grid ~ normal(0, 0.5);
+      sigma_grid ~ exponential(1);
+      
+      // plant
+      z_plant ~ normal(0, 1);
+      mu_plant ~ normal(0, 0.5);
+      sigma_plant ~ exponential(1);
+      
+      fruit_removal ~ binomial(15, 
+                               inv_logit(
+                               alpha +
+                               // beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    
+    generated quantities {
+      array[N] int ppcheck;
+      
+      ppcheck = binomial_rng(15, 
+                             inv_logit(
+                               alpha +
+                               //beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               // beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    ')
+
+
+file <- paste0(getwd(), '/generative_simulation.stan')
+fit_gen_sim <- cmdstan_model(file, compile = T)
+
+mod_gen_sim <- 
+  fit_gen_sim$sample(
+    data = dat,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 5,
+    chains = 4, 
+    parallel_chains = 4,
+    seed = 06231993
+  )
+
+summary_mod_gen <- mod_gen_sim$summary()
+mod_diagnostics(mod_gen_sim, summary_mod_gen)
+summary_mod_gen[which(summary_mod_gen$ess_tail < 500), ]
+
+ppcheck <- mod_gen_sim$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$fruit_removal), main = '', 
+     xlab = 'Simulated fruit removal')
+for (i in 1:200) lines(density(ppcheck[i, ]), lwd = 0.1)
+lines(density(dat$fruit_removal), lwd = 2, col = 'red')
+
+posterior_pars <- 
+  mod_gen_sim$draws(c('alpha', 
+                      'beta_iso',
+                      'TI',
+                      'country', 
+                      'island', 
+                      'grid', 
+                      'plant'), 
+                    format = 'df')
+
+
+posterior_pars <- 
+  lapply(c('alpha', 'beta_iso', 'TI', 
+           'country', 'island', 
+           'grid', 'plant'), FUN = 
+           function(x) {
+             posterior_pars[, grep(x, colnames(posterior_pars))]
+           })
+
+names(posterior_pars) <- c('alpha', 'beta_iso', 'TI', 
+                           'country', 'island', 
+                           'grid', 'plant')
+
+# ==== Parameter recovery =======
+
+# === Random effects 
+
+# countries 
+
+compare_posterior(posterior_pars$country, 
+                  country, 
+                  xlab = 'Countries', 
+                  ylab = 'Posterior mean', 
+                  main = 'Country parameters')
+
+
+
+
+# islands 
+
+compare_posterior(posterior_pars$island, 
+                  islands_pars, 
+                  xlab = 'Islands', 
+                  ylab = 'Posterior mean', 
+                  main = 'Islands parameters')
+
+# plants 
+
+compare_posterior(posterior_pars$plant, 
+                  plants, 
+                  xlab = 'Plants', 
+                  ylab = 'Posterior mean', 
+                  main = 'PLant parameters')
+
+# grids
+
+compare_posterior(posterior_pars$grid, 
+                  grid, 
+                  xlab = 'Grid', 
+                  ylab = 'Posterior mean', 
+                  main = 'Grid parameters')
+
+
+# === Population effects 
+
+#type of island
+compare_posterior(posterior_pars$TI,
+                  type_island,
+                  xlab = 'Type of island',
+                  ylab = 'Posterior mean',
+                  main = 'Type of island parameters')
+
+# island isolation 
+# this is a total effect, so it captures the positive effect of 
+# isolation on native vegetation, which has a strong positive effect on 
+# fruit removal. The direct effect of isolation when assessing the effect 
+# of native vegetation must be centered around zero. 
+plot(density(posterior_pars$beta_iso$beta_iso), main = '', 
+     xlab = expression(beta['island isolation']))
+abline(v = beta_isolation, lwd = 2, col = 'red')
+
+#======= Effect bush =======
+
+cat(file = 'generative_simulation.stan', 
+    '
+    functions{
+    
+      matrix GP_quadratic(matrix x, 
+                          real eta, 
+                          real rho, 
+                          real delta) {
+                          
+                          int N = dims(x)[1];
+                          matrix[N, N] K;
+                          matrix[N, N] L_K;
+                          
+                          for (i in 1:(N-1)) {
+                            K[i, i] = eta + delta;
+                            for (j in (i+1):N) {
+                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[j, i] = K[i, j];
+                            }
+                          }
+                          
+                          K[N, N] = eta + delta;
+                          L_K = cholesky_decompose(K);
+                          return L_K;
+                          }
+    }
+    
+    data {
+      int N;
+      int N_islands;
+      int N_country;
+      int N_plant;
+      int N_grid;
+      int N_type_island;
+      // response
+      array[N] int fruit_removal;
+      // propulation effects
+      array[N] int type_island;
+      vector[N] altitude;
+      vector[N] island_isolation;
+      vector[N] native_cover;
+      vector[N] bush_cover;
+      // group level effects
+      array[N] int islands_ID;
+      array[N] int country_ID;
+      array[N] int grid_ID;
+      array[N] int plant_ID;
+      // matrix of island distances (std)
+      matrix[N_islands, N_islands] dist_islands;
+    }
+    
+    parameters {
+      
+      // intercept
+      real alpha;
+      
+      // population effects
+      vector[N_type_island] TI;
+      // real beta_alt;
+      real beta_iso;
+      real beta_NV;
+      real beta_bush;
+    
+      // group level effects
+      // GP island
+      vector[N_islands] z_islands;
+      real<lower = 0> eta;
+      real<lower = 0> rho;
+      
+      // country
+      vector[N_country] z_country;
+      real mu_country;
+      real<lower = 0> sigma_country;
+      
+      // grid
+      vector[N_grid] z_grid;
+      real mu_grid;
+      real<lower = 0> sigma_grid;
+      
+      // plant
+      vector[N_plant] z_plant;
+      real mu_plant;
+      real<lower = 0> sigma_plant;
+      
+    }
+    
+    transformed parameters {
+      
+      // Population effects
+      
+      
+      // group level effects
+      // GP islands
+      vector[N_islands] island;
+      matrix[N_islands, N_islands] L_K_islands;
+      L_K_islands = GP_quadratic(dist_islands,
+                                 eta, 
+                                 rho, 
+                                 0.001);
+      island = L_K_islands * z_islands;
+      
+      // country
+      vector[N_country] country;
+      country = mu_country + z_country * sigma_country;
+      
+      // grid
+      vector[N_grid] grid;
+      grid = mu_grid + z_grid * sigma_grid;
+      
+      // plant
+      vector[N_plant] plant;
+      plant = mu_plant + z_plant * sigma_plant;
+    }
+    
+    model {
+      
+      // intercept and dispersion
+      alpha ~ normal(0, 1);
+      
+      // Population effects
+      TI ~ normal(0, 1);
+      //beta_alt ~ normal(0, 1);
+      beta_iso ~ normal(0, 1);
+      beta_NV ~ normal(0, 1);
+      beta_bush ~ normal(0, 1);
+      
+      // GP islands
+      eta ~ exponential(4);
+      rho ~ exponential(1);
+      z_islands ~ normal(0, 1);
+      
+      // country
+      z_country ~ normal(0, 1);
+      mu_country ~ normal(0, 0.5);
+      sigma_country ~ exponential(1);
+      
+      // grid
+      z_grid ~ normal(0, 1);
+      mu_grid ~ normal(0, 0.5);
+      sigma_grid ~ exponential(1);
+      
+      // plant
+      z_plant ~ normal(0, 1);
+      mu_plant ~ normal(0, 0.5);
+      sigma_plant ~ exponential(1);
+      
+      fruit_removal ~ binomial(15, 
+                               inv_logit(
+                               alpha +
+                               // beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               beta_NV * native_cover +
+                               beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    
+    generated quantities {
+      array[N] int ppcheck;
+      
+      ppcheck = binomial_rng(15, 
+                             inv_logit(
+                               alpha +
+                               //beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               beta_NV * native_cover +
+                               beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    ')
+
+
+file <- paste0(getwd(), '/generative_simulation.stan')
+fit_gen_sim <- cmdstan_model(file, compile = T)
+
+mod_gen_sim <- 
+  fit_gen_sim$sample(
+    data = dat,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 5,
+    chains = 4, 
+    parallel_chains = 4,
+    seed = 06231993
+  )
+
+summary_mod_gen <- mod_gen_sim$summary()
+mod_diagnostics(mod_gen_sim, summary_mod_gen)
+summary_mod_gen[which(summary_mod_gen$ess_tail < 500), ]
+
+ppcheck <- mod_gen_sim$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$fruit_removal), main = '', 
+     xlab = 'Simulated fruit removal')
+for (i in 1:200) lines(density(ppcheck[i, ]), lwd = 0.1)
+lines(density(dat$fruit_removal), lwd = 2, col = 'red')
+
+posterior_pars <- 
+  mod_gen_sim$draws(c('alpha', 
+                      'beta_iso',
+                      'beta_NV',
+                      'beta_bush',
+                      'TI',
+                      'country', 
+                      'island', 
+                      'grid', 
+                      'plant'), 
+                    format = 'df')
+
+
+posterior_pars <- 
+  lapply(c('alpha', 'beta_iso', 
+           'beta_NV', 'beta_bush', 'TI', 
+           'country', 'island', 
+           'grid', 'plant'), FUN = 
+           function(x) {
+             posterior_pars[, grep(x, colnames(posterior_pars))]
+           })
+
+names(posterior_pars) <- c('alpha', 'beta_iso', 
+                           'beta_NV', 'beta_bush', 'TI', 
+                           'country', 'island', 
+                           'grid', 'plant')
+
+# ==== Parameter recovery =======
+
+# === Random effects 
+
+# countries 
+
+compare_posterior(posterior_pars$country, 
+                  country, 
+                  xlab = 'Countries', 
+                  ylab = 'Posterior mean', 
+                  main = 'Country parameters')
+
+
+
+
+# islands 
+
+compare_posterior(posterior_pars$island, 
+                  islands_pars, 
+                  xlab = 'Islands', 
+                  ylab = 'Posterior mean', 
+                  main = 'Islands parameters')
+
+# plants 
+
+compare_posterior(posterior_pars$plant, 
+                  plants, 
+                  xlab = 'Plants', 
+                  ylab = 'Posterior mean', 
+                  main = 'PLant parameters')
+
+# grids
+
+compare_posterior(posterior_pars$grid, 
+                  grid, 
+                  xlab = 'Grid', 
+                  ylab = 'Posterior mean', 
+                  main = 'Grid parameters')
+
+
+# === Population effects 
+
+#type of island
+compare_posterior(posterior_pars$TI,
+                  type_island,
+                  xlab = 'Type of island',
+                  ylab = 'Posterior mean',
+                  main = 'Type of island parameters')
+
+# island isolation 
+# this is a direct effect 
+plot(density(posterior_pars$beta_iso$beta_iso), main = '', 
+     xlab = expression(beta['island isolation']))
+abline(v = beta_isolation, lwd = 2, col = 'red')
+
+plot(density(posterior_pars$beta_NV$beta_NV), main = '', 
+     xlab = expression(beta['Native vegetation']))
+abline(v = beta_nativeV, lwd = 2, col = 'red')
+
+
+plot(density(posterior_pars$beta_bush$beta_bush), main = '', 
+     xlab = expression(beta['Native vegetation']))
+abline(v = beta_bush, lwd = 2, col = 'red')
+
+
+#======= Effect native vegetation ==============
+
+cat(file = 'generative_simulation.stan', 
+    '
+    functions{
+    
+      matrix GP_quadratic(matrix x, 
+                          real eta, 
+                          real rho, 
+                          real delta) {
+                          
+                          int N = dims(x)[1];
+                          matrix[N, N] K;
+                          matrix[N, N] L_K;
+                          
+                          for (i in 1:(N-1)) {
+                            K[i, i] = eta + delta;
+                            for (j in (i+1):N) {
+                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[j, i] = K[i, j];
+                            }
+                          }
+                          
+                          K[N, N] = eta + delta;
+                          L_K = cholesky_decompose(K);
+                          return L_K;
+                          }
+    }
+    
+    data {
+      int N;
+      int N_islands;
+      int N_country;
+      int N_plant;
+      int N_grid;
+      int N_type_island;
+      // response
+      array[N] int fruit_removal;
+      // propulation effects
+      array[N] int type_island;
+      vector[N] altitude;
+      vector[N] island_isolation;
+      vector[N] native_cover;
+      vector[N] bush_cover;
+      // group level effects
+      array[N] int islands_ID;
+      array[N] int country_ID;
+      array[N] int grid_ID;
+      array[N] int plant_ID;
+      // matrix of island distances (std)
+      matrix[N_islands, N_islands] dist_islands;
+    }
+    
+    parameters {
+      
+      // intercept
+      real alpha;
+      
+      // population effects
+      vector[N_type_island] TI;
+      // real beta_alt;
+      real beta_iso;
+      real beta_NV;
+      // real beta_bush;
+    
+      // group level effects
+      // GP island
+      vector[N_islands] z_islands;
+      real<lower = 0> eta;
+      real<lower = 0> rho;
+      
+      // country
+      vector[N_country] z_country;
+      real mu_country;
+      real<lower = 0> sigma_country;
+      
+      // grid
+      vector[N_grid] z_grid;
+      real mu_grid;
+      real<lower = 0> sigma_grid;
+      
+      // plant
+      vector[N_plant] z_plant;
+      real mu_plant;
+      real<lower = 0> sigma_plant;
+      
+    }
+    
+    transformed parameters {
+      
+      // Population effects
+      
+      
+      // group level effects
+      // GP islands
+      vector[N_islands] island;
+      matrix[N_islands, N_islands] L_K_islands;
+      L_K_islands = GP_quadratic(dist_islands,
+                                 eta, 
+                                 rho, 
+                                 0.001);
+      island = L_K_islands * z_islands;
+      
+      // country
+      vector[N_country] country;
+      country = mu_country + z_country * sigma_country;
+      
+      // grid
+      vector[N_grid] grid;
+      grid = mu_grid + z_grid * sigma_grid;
+      
+      // plant
+      vector[N_plant] plant;
+      plant = mu_plant + z_plant * sigma_plant;
+    }
+    
+    model {
+      
+      // intercept and dispersion
+      alpha ~ normal(0, 1);
+      
+      // Population effects
+      TI ~ normal(0, 1);
+      //beta_alt ~ normal(0, 1);
+      beta_iso ~ normal(0, 1);
+      beta_NV ~ normal(0, 1);
+      // beta_bush ~ normal(0, 1);
+      
+      // GP islands
+      eta ~ exponential(4);
+      rho ~ exponential(1);
+      z_islands ~ normal(0, 1);
+      
+      // country
+      z_country ~ normal(0, 1);
+      mu_country ~ normal(0, 0.5);
+      sigma_country ~ exponential(1);
+      
+      // grid
+      z_grid ~ normal(0, 1);
+      mu_grid ~ normal(0, 0.5);
+      sigma_grid ~ exponential(1);
+      
+      // plant
+      z_plant ~ normal(0, 1);
+      mu_plant ~ normal(0, 0.5);
+      sigma_plant ~ exponential(1);
+      
+      fruit_removal ~ binomial(15, 
+                               inv_logit(
+                               alpha +
+                               // beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    
+    generated quantities {
+      array[N] int ppcheck;
+      
+      ppcheck = binomial_rng(15, 
+                             inv_logit(
+                               alpha +
+                               //beta_alt * altitude +
+                               beta_iso * island_isolation +
+                               beta_NV * native_cover +
+                               // beta_bush * bush_cover +
+                               TI[type_island] +
+                               country[country_ID] +
+                               island[islands_ID] +
+                               grid[grid_ID] +
+                               plant[plant_ID]
+                               ));
+    }
+    ')
+
+
+file <- paste0(getwd(), '/generative_simulation.stan')
+fit_gen_sim <- cmdstan_model(file, compile = T)
+
+mod_gen_sim <- 
+  fit_gen_sim$sample(
+    data = dat,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 5,
+    chains = 4, 
+    parallel_chains = 4,
+    seed = 06231993
+  )
+
+summary_mod_gen <- mod_gen_sim$summary()
+mod_diagnostics(mod_gen_sim, summary_mod_gen)
+summary_mod_gen[which(summary_mod_gen$ess_tail < 500), ]
+
+ppcheck <- mod_gen_sim$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$fruit_removal), main = '', 
+     xlab = 'Simulated fruit removal')
+for (i in 1:200) lines(density(ppcheck[i, ]), lwd = 0.1)
+lines(density(dat$fruit_removal), lwd = 2, col = 'red')
+
+posterior_pars <- 
+  mod_gen_sim$draws(c('alpha', 
+                      'beta_iso',
+                      'beta_NV',
+                      'beta_bush',
+                      'TI',
+                      'country', 
+                      'island', 
+                      'grid', 
+                      'plant'), 
+                    format = 'df')
+
+
+posterior_pars <- 
+  lapply(c('alpha', 'beta_iso', 
+           'beta_NV', 'beta_bush', 'TI', 
+           'country', 'island', 
+           'grid', 'plant'), FUN = 
+           function(x) {
+             posterior_pars[, grep(x, colnames(posterior_pars))]
+           })
+
+names(posterior_pars) <- c('alpha', 'beta_iso', 
+                           'beta_NV', 'beta_bush', 'TI', 
+                           'country', 'island', 
+                           'grid', 'plant')
+
+# ==== Parameter recovery =======
+
+# === Random effects 
+
+# countries 
+
+compare_posterior(posterior_pars$country, 
+                  country, 
+                  xlab = 'Countries', 
+                  ylab = 'Posterior mean', 
+                  main = 'Country parameters')
+
+
+
+
+# islands 
+
+compare_posterior(posterior_pars$island, 
+                  islands_pars, 
+                  xlab = 'Islands', 
+                  ylab = 'Posterior mean', 
+                  main = 'Islands parameters')
+
+# plants 
+
+compare_posterior(posterior_pars$plant, 
+                  plants, 
+                  xlab = 'Plants', 
+                  ylab = 'Posterior mean', 
+                  main = 'PLant parameters')
+
+# grids
+
+compare_posterior(posterior_pars$grid, 
+                  grid, 
+                  xlab = 'Grid', 
+                  ylab = 'Posterior mean', 
+                  main = 'Grid parameters')
+
+
+# === Population effects 
+
+#type of island
+compare_posterior(posterior_pars$TI,
+                  type_island,
+                  xlab = 'Type of island',
+                  ylab = 'Posterior mean',
+                  main = 'Type of island parameters')
+
+# island isolation 
+# this is a direct effect 
+plot(density(posterior_pars$beta_iso$beta_iso), main = '', 
+     xlab = expression(beta['island isolation']))
+abline(v = beta_isolation, lwd = 2, col = 'red')
+
+plot(density(posterior_pars$beta_NV$beta_NV), main = '', 
+     xlab = expression(beta['Native vegetation']))
+abline(v = beta_nativeV, lwd = 2, col = 'red')
+
+
+plot(density(posterior_pars$beta_bush$beta_bush), main = '', 
+     xlab = expression(beta['Native vegetation']))
+abline(v = beta_bush, lwd = 2, col = 'red')
