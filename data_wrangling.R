@@ -135,21 +135,33 @@ d$`FN02--2`
 d[which(unlist(lapply(d, nrow), use.names = F) != 15)]
 
 
-# ===== Data 1: total removal =========
+# ===== Data: total and per-group fruit removal =========
 
 d_total <- 
   lapply(d, FUN = 
          function(x) {
-           remotion <- sum(x$fate_bin)
+           remotion <- sum(x$fate_bin) # total remoremovaltion
+           
+           v <- 
+             sapply(levels(x$frugivore), FUN = 
+                    function(i) {
+                      # removal per group
+                      sum(x$frugivore == i)
+                    })
+           v1 <- as_tibble(matrix(v, nrow = 1))
+           colnames(v1) <- names(v)
+           
+           # removing unnecessary grouping factors
            indx <- c(grep('fate_bin', colnames(x)), 
                      grep('frugivore', colnames(x)), 
                      grep('fruit_ID', colnames(x)))
            x$lat <- x$lat[1]
            x$long <- x$long[1]
            x <- unique(x[, -c(indx)])
-           x$total <- 15
-           x$remotion <- remotion
-           x
+           x$total <- 15 # total available fruits
+           # adding total and per-group fruit removal
+           x$total_remotion <- remotion 
+           as_tibble(cbind(x, v1))
          })
 
 d_total[unlist(lapply(d_total, function(x) nrow(x) > 1), use.names = F)]
@@ -162,26 +174,31 @@ apply(d_total, 2, FUN = function(x) mean(is.na(x)))
 
 colnames(d_total)
 
+# fixing island label 
 d_total$island_type[which(d_total$island == 'Sicily' &
                             d_total$island_type == 'Coraline')] <- 'Continental'
 
 codes1 <- d_total[, c("country2", "island", "grid", "plant_ID", 
                      "realm", "ecoregion", "biome", "island_type")]
 
+codes <- codes1
+
 codes[] <- lapply(codes1, function(x) as.numeric(as.factor(x)))
 
+# ====== Data structure for generative simulation ======
 
 saveRDS(list(data_structure = codes,
-             labels = codes1, 
+             labels = codes1,
              dist_mat = islands_dist), 'data_structure_simulation.rds')
 
 
-View(d_total)
 
-# ==============
+# ======= Data for models ========
 
-list(total = d_total)
-
+saveRDS(list(data_structure = codes,
+             labels = codes1,
+             dist_islands = islands_dist, 
+             data = d_total), 'data_structure_simulation.rds')
 
 
 
