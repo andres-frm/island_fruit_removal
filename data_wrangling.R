@@ -198,7 +198,7 @@ saveRDS(list(data_structure = codes,
 saveRDS(list(data_structure = codes,
              labels = codes1,
              dist_islands = islands_dist, 
-             data = d_total), 'data_structure_simulation.rds')
+             data = d_total), 'data.rds')
 
 
 
