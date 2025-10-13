@@ -166,9 +166,9 @@ bush_cover <-
 
 sim_data$bush_cover <- bush_cover
 
-beta_nativeV <- 0.8 # slope native vegetation
+beta_nativeV <- 1.8 # slope native vegetation
 beta_isolation <- 0.01 # slope island isolation
-beta_bush <- 1.4
+beta_bush <- 0.8
 
 fruit_removal <- 
   sapply(1:nrow(sim_data), FUN = 
@@ -515,18 +515,12 @@ compare_posterior(posterior_pars$grid,
 
 # === Population effects 
 
-# type of island
-compare_posterior(posterior_pars$TI, 
-                  type_island, 
-                  xlab = 'Type of island', 
-                  ylab = 'Posterior mean', 
-                  main = 'Type of island parameters')
-
 # effect of altitude
 plot(density(posterior_pars$beta_alt$beta_alt), 
      main = '', xlab = expression(beta['altitude']))
 abline(v = beta_alt, col = 'red', lwd = 2)
 
+# effect altitude ok
 
 # ===== Effect type of island =====
 
@@ -810,7 +804,8 @@ compare_posterior(posterior_pars$TI,
                   main = 'Type of island parameters')
 
 
-
+# effect of island type ok 
+# 
 #======= Effect island isolation ======
 
 cat(file = 'generative_simulation.stan', 
@@ -1084,12 +1079,6 @@ compare_posterior(posterior_pars$grid,
 
 # === Population effects 
 
-#type of island
-compare_posterior(posterior_pars$TI,
-                  type_island,
-                  xlab = 'Type of island',
-                  ylab = 'Posterior mean',
-                  main = 'Type of island parameters')
 
 # island isolation 
 # this is a total effect, so it captures the positive effect of 
@@ -1161,7 +1150,7 @@ cat(file = 'generative_simulation.stan',
       // population effects
       vector[N_type_island] TI;
       // real beta_alt;
-      real beta_iso;
+      // real beta_iso;
       real beta_NV;
       real beta_bush;
     
@@ -1224,7 +1213,7 @@ cat(file = 'generative_simulation.stan',
       // Population effects
       TI ~ normal(0, 1);
       //beta_alt ~ normal(0, 1);
-      beta_iso ~ normal(0, 1);
+      // beta_iso ~ normal(0, 1);
       beta_NV ~ normal(0, 1);
       beta_bush ~ normal(0, 1);
       
@@ -1252,7 +1241,7 @@ cat(file = 'generative_simulation.stan',
                                inv_logit(
                                alpha +
                                // beta_alt * altitude +
-                               beta_iso * island_isolation +
+                               //beta_iso * island_isolation +
                                beta_NV * native_cover +
                                beta_bush * bush_cover +
                                TI[type_island] +
@@ -1270,7 +1259,7 @@ cat(file = 'generative_simulation.stan',
                              inv_logit(
                                alpha +
                                //beta_alt * altitude +
-                               beta_iso * island_isolation +
+                               //beta_iso * island_isolation +
                                beta_NV * native_cover +
                                beta_bush * bush_cover +
                                TI[type_island] +
@@ -1310,7 +1299,7 @@ lines(density(dat$fruit_removal), lwd = 2, col = 'red')
 
 posterior_pars <- 
   mod_gen_sim$draws(c('alpha', 
-                      'beta_iso',
+                      #'beta_iso',
                       'beta_NV',
                       'beta_bush',
                       'TI',
@@ -1322,7 +1311,7 @@ posterior_pars <-
 
 
 posterior_pars <- 
-  lapply(c('alpha', 'beta_iso', 
+  lapply(c('alpha', #'beta_iso', 
            'beta_NV', 'beta_bush', 'TI', 
            'country', 'island', 
            'grid', 'plant'), FUN = 
@@ -1330,7 +1319,7 @@ posterior_pars <-
              posterior_pars[, grep(x, colnames(posterior_pars))]
            })
 
-names(posterior_pars) <- c('alpha', 'beta_iso', 
+names(posterior_pars) <- c('alpha', #'beta_iso', 
                            'beta_NV', 'beta_bush', 'TI', 
                            'country', 'island', 
                            'grid', 'plant')
@@ -1377,22 +1366,16 @@ compare_posterior(posterior_pars$grid,
 
 # === Population effects 
 
-#type of island
-compare_posterior(posterior_pars$TI,
-                  type_island,
-                  xlab = 'Type of island',
-                  ylab = 'Posterior mean',
-                  main = 'Type of island parameters')
 
 # island isolation 
 # this is a direct effect 
-plot(density(posterior_pars$beta_iso$beta_iso), main = '', 
-     xlab = expression(beta['island isolation']))
-abline(v = beta_isolation, lwd = 2, col = 'red')
-
-plot(density(posterior_pars$beta_NV$beta_NV), main = '', 
-     xlab = expression(beta['Native vegetation']))
-abline(v = beta_nativeV, lwd = 2, col = 'red')
+# plot(density(posterior_pars$beta_iso$beta_iso), main = '', 
+#      xlab = expression(beta['island isolation']))
+# abline(v = beta_isolation, lwd = 2, col = 'red')
+# 
+# plot(density(posterior_pars$beta_NV$beta_NV), main = '', 
+#      xlab = expression(beta['Native vegetation']))
+# abline(v = beta_nativeV, lwd = 2, col = 'red')
 
 
 plot(density(posterior_pars$beta_bush$beta_bush), main = '', 
@@ -1612,7 +1595,7 @@ posterior_pars <-
   mod_gen_sim$draws(c('alpha', 
                       'beta_iso',
                       'beta_NV',
-                      'beta_bush',
+                      #'beta_bush',
                       'TI',
                       'country', 
                       'island', 
@@ -1623,7 +1606,8 @@ posterior_pars <-
 
 posterior_pars <- 
   lapply(c('alpha', 'beta_iso', 
-           'beta_NV', 'beta_bush', 'TI', 
+           'beta_NV', #'beta_bush', 
+           'TI', 
            'country', 'island', 
            'grid', 'plant'), FUN = 
            function(x) {
@@ -1631,7 +1615,9 @@ posterior_pars <-
            })
 
 names(posterior_pars) <- c('alpha', 'beta_iso', 
-                           'beta_NV', 'beta_bush', 'TI', 
+                           'beta_NV', 
+                           #'beta_bush', 
+                           'TI', 
                            'country', 'island', 
                            'grid', 'plant')
 
@@ -1677,12 +1663,6 @@ compare_posterior(posterior_pars$grid,
 
 # === Population effects 
 
-#type of island
-compare_posterior(posterior_pars$TI,
-                  type_island,
-                  xlab = 'Type of island',
-                  ylab = 'Posterior mean',
-                  main = 'Type of island parameters')
 
 # island isolation 
 # this is a direct effect 
@@ -1694,7 +1674,5 @@ plot(density(posterior_pars$beta_NV$beta_NV), main = '',
      xlab = expression(beta['Native vegetation']))
 abline(v = beta_nativeV, lwd = 2, col = 'red')
 
+# estimated correctly 
 
-plot(density(posterior_pars$beta_bush$beta_bush), main = '', 
-     xlab = expression(beta['Native vegetation']))
-abline(v = beta_bush, lwd = 2, col = 'red')
