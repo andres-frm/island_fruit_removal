@@ -105,7 +105,7 @@ d <-
       "grid", "plant_ID", "fruit_ID", "fate_bin", 
       "frugivore", "season", "plant_invasive_rank", "human_pop", 
       "human_footprint", "distance_mainland", "island_size", "isolation", 
-      "native_vegetation")]
+      "altitude_m", "temperature", "bush_cover", "native_vegetation")]
 
 plot(density(d$distance_mainland))
 
@@ -137,9 +137,15 @@ d[which(unlist(lapply(d, nrow), use.names = F) != 15)]
 
 # ===== Data: total and per-group fruit removal =========
 
+mean(unlist(lapply(d, nrow)) == 15)
+
 d_total <- 
   lapply(d, FUN = 
          function(x) {
+           
+           alt <- median(x$altitude_m)
+           bc <- median(x$bush_cover)
+           
            remotion <- sum(x$fate_bin) # total remoremovaltion
            
            v <- 
@@ -157,6 +163,8 @@ d_total <-
                      grep('fruit_ID', colnames(x)))
            x$lat <- x$lat[1]
            x$long <- x$long[1]
+           x$altitude_m <- alt
+           x$bush_cover <- bc
            x <- unique(x[, -c(indx)])
            x$total <- 15 # total available fruits
            # adding total and per-group fruit removal
@@ -208,8 +216,6 @@ codes_labes <-
 saveRDS(list(data_structure = codes,
              labels = codes1,
              dist_mat = islands_dist), 'data_structure_simulation.rds')
-
-
 
 # ======= Data for models ========
 
