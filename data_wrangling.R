@@ -185,6 +185,24 @@ codes <- codes1
 
 codes[] <- lapply(codes1, function(x) as.numeric(as.factor(x)))
 
+codes_labes <- 
+  list(country = 
+       unique(tibble(country = codes1$country2, 
+                     code = codes$country2)), 
+     island = 
+       unique(tibble(island = codes1$island, 
+                     code = codes$island)), 
+     grid = unique(tibble(island = codes1$grid, 
+                          code = codes$grid)), 
+     real = unique(tibble(island = codes1$realm, 
+                          code = codes$realm)), 
+     ecoregion = unique(tibble(island = codes1$ecoregion, 
+                               code = codes$ecoregion)), 
+     biome = unique(tibble(island = codes1$biome, 
+                           code = codes$biome)), 
+     island_type = unique(tibble(island = codes1$island_type, 
+                                 code = codes$island_type)))
+
 # ====== Data structure for generative simulation ======
 
 saveRDS(list(data_structure = codes,
@@ -195,8 +213,7 @@ saveRDS(list(data_structure = codes,
 
 # ======= Data for models ========
 
-saveRDS(list(data_structure = codes,
-             labels = codes1,
+saveRDS(list(codes = codes_labes,
              dist_islands = islands_dist, 
              data = d_total), 'data.rds')
 
