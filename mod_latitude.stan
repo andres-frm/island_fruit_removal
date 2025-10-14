@@ -3,14 +3,14 @@ functions{
     // function for conducting imputation of NA values
     vector merge_missing(array[] int miss_indx, vector x_obs, vector x_miss) {
       int N = dims(x_obs)[1];
-      int N_miss = dims(x_obs)[1]
+      int N_miss = dims(x_miss)[1];
       vector[N] merge;
       merge = x_obs;
       
       for (i in 1:N_miss) {
         merge[miss_indx[i]] = x_miss[i];
       }
-      return merge
+      return merge;
     }
     
     // Gaussian processes function
@@ -29,7 +29,7 @@ functions{
                             
                             for (j in (i+1):N) {
                               // quadratic kernell
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               // filling lower part of the matrix 
                               K[j, i] = K[i, j];
                             }
@@ -59,7 +59,7 @@ functions{
       array[N] int total_remotion;
       array[N] int Arthropod;
       array[N] int Bird;
-      array[N] int Lizards;
+      array[N] int Lizard;
       array[N] int Mammal_non_rodent;
       array[N] int rodent_all; // 1/0 response (use a Bernoulli)
       // propulation effects
@@ -82,19 +82,19 @@ functions{
       array[N] int ecoregion;
       array[N] int biome;
       array[N] int grid;
-      array[N] int plant;
+      array[N] int plant_ID;
       // Na imputation
       array[N_na_bush] int na_bush;
       // matrix of island distances (std)
-      matrix[N_islands, N_islands] dist_island;
+      matrix[N_island, N_island] dist_island;
     }
     
     parameters {
       
       // imputed bush cover
-      vector[N_na_bush] bush_imputed;
-      real bush_mu;
-      real<lower = 0> bush_sigma;
+      // vector[N_na_bush] bush_imputed;
+      // real bush_mu;
+      // real<lower = 0> bush_sigma;
       
       // intercept
       real alpha;
@@ -102,7 +102,7 @@ functions{
       // population effects
       vector[N_type_island] TI; // main effect
       //vector[N_plant_invasive_rank] inv_rank;
-      real beta_lati; // main effect
+      real beta_lat; // main effect
       // real beta_H_pop;
       // real beta_H_foot;
       // real beta_I_mainland;
@@ -134,7 +134,7 @@ functions{
       real mu_plant;
       real<lower = 0> sigma_plant;
       
-      // real
+      // realm
       vector[N_realm] z_realm;
       real mu_realm;
       real<lower = 0> sigma_realm;
@@ -154,22 +154,22 @@ functions{
     transformed parameters {
       
       // imputed variable
-      vector[N] bush_merge;
-      bush_merge = merge_missing(na_bush, 
-                                 to_vector(bush_cover), 
-                                 bush_imputed);
+      // vector[N] bush_merge;
+      // bush_merge = merge_missing(na_bush, 
+      //                            to_vector(bush_cover), 
+      //                            bush_imputed);
       
       // Population effects
       
       // group level effects
       // GP islands
-      vector[N_islands] p_island;
-      matrix[N_islands, N_islands] L_K_islands;
+      vector[N_island] p_island;
+      matrix[N_island, N_island] L_K_islands;
       L_K_islands = GP_quadratic(dist_island,
-                                 eta, 
-                                 rho, 
-                                 0.001);
-      island = L_K_islands * z_islands;
+                                 eta,
+                                 rho,
+                                 1e-6);
+      p_island = L_K_islands * z_islands;
       
       // country
       vector[N_country] p_country;
@@ -183,9 +183,9 @@ functions{
       vector[N_plant] p_plant;
       p_plant = mu_plant + z_plant * sigma_plant;
       
-      // real
+      // realm
       vector[N_realm] p_realm;
-      p_real = mu_real + z_real * sigma_realm;
+      p_realm = mu_realm + z_realm * sigma_realm;
       
       // ecoregion
       vector[N_ecoregion] p_ecoR;
@@ -200,29 +200,29 @@ functions{
     model {
       
       // imputation
-      bush_mu ~ normal(0, 1);
-      bush_sigma ~ exponential(1);
-      bush_merge ~ normal(bush_mu, bush_sigma);
+      // bush_mu ~ normal(0, 1);
+      // bush_sigma ~ exponential(1);
+      // bush_merge ~ normal(bush_mu, bush_sigma);
       
       // intercept and dispersion
       alpha ~ normal(0, 1);
       
       // Population effects
       TI ~ normal(0, 1);
-      //vector[N_plant_invasive_rank] inv_rank;
-      real beta_lati; // main effect
-      // real beta_H_pop;
-      // real beta_H_foot;
-      // real beta_I_mainland;
-      // real beta_I_size;
-      // real beta_I_alt;
-      // real beta_I_isolation;
-      // real beta_temp;
-      // real beta_NV;
-      // real beta_bush;
+      // inv_rank;
+      beta_lat ~ normal(0, 1); // main effect
+      //beta_H_pop ~  ~ normal(0, 1)normal(0, 1);
+      //beta_H_foot ~ normal(0, 1);
+      //beta_I_mainland ~ normal(0, 1);
+      //beta_I_size ~ normal(0, 1);
+      //beta_I_alt ~ normal(0, 1);
+      //beta_I_isolation ~ normal(0, 1);
+      //beta_temp ~ normal(0, 1);
+      //beta_NV ~ normal(0, 1);
+      //beta_bush ~ normal(0, 1);
       
       // GP islands
-      eta ~ exponential(4);
+      eta ~ exponential(3);
       rho ~ exponential(1);
       z_islands ~ normal(0, 1);
       
@@ -256,24 +256,29 @@ functions{
       mu_biome ~ normal(0, 0.5);
       sigma_biome ~ exponential(1);
       
-      ///
-      /// you shoul continue including all parameters in the model
-      ///
-      
-      
-      fruit_removal ~ binomial(15, 
-                               inv_logit(
+      total_remotion ~ binomial(15, 
+                                inv_logit(
                                alpha +
-                               beta_alt * altitude +
-                               // beta_iso * island_isolation +
-                               // beta_NV * native_cover +
-                               // beta_bush * bush_cover +
-                               TI[type_island] +
-                               country[country_ID] +
-                               island[islands_ID] +
-                               grid[grid_ID] +
-                               plant[plant_ID]
-                               ));
+                               beta_lat * lat +
+                               // beta_H_pop * +
+                               //beta_H_foot * +
+                               //beta_I_mainland * +
+                               //beta_I_size * +
+                               //beta_I_alt * +
+                               //beta_I_isolation * +
+                               //beta_temp * +
+                               //beta_NV * +
+                               //beta_bush * +
+                               // inv_rank
+                               TI[island_type] +
+                               p_island[island] +
+                               p_country[country] +
+                               p_grid[grid] +
+                               p_plant[plant_ID] +
+                               p_realm[realm] +
+                               p_ecoR[ecoregion] +
+                               p_biome[biome]
+                                ));
     }
     
     generated quantities {
@@ -282,14 +287,24 @@ functions{
       ppcheck = binomial_rng(15, 
                              inv_logit(
                                alpha +
-                               beta_alt * altitude +
-                               // beta_iso * island_isolation +
-                               // beta_NV * native_cover +
-                               // beta_bush * bush_cover +
-                               TI[type_island] +
-                               country[country_ID] +
-                               island[islands_ID] +
-                               grid[grid_ID] +
-                               plant[plant_ID]
+                               beta_lat * lat +
+                               // beta_H_pop * +
+                               //beta_H_foot * +
+                               //beta_I_mainland * +
+                               //beta_I_size * +
+                               //beta_I_alt * +
+                               //beta_I_isolation * +
+                               //beta_temp * +
+                               //beta_NV * +
+                               //beta_bush * +
+                               // inv_rank
+                               TI[island_type] +
+                               p_island[island] +
+                               p_country[country] +
+                               p_grid[grid] +
+                               p_plant[plant_ID] +
+                               p_realm[realm] +
+                               p_ecoR[ecoregion] +
+                               p_biome[biome]
                                ));
     }
