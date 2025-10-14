@@ -65,7 +65,7 @@ dimnames(islands_dist) <- list(coords_islands$island,
 
 islands_dist[1:5, 1:5]
 
-islands_dist <- islands_dist/max(islands_dist)
+islands_dist <- islands_dist/1e3
 
 # ======== Distance among grids ======== 
 
