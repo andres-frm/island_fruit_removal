@@ -7,6 +7,9 @@ source('functions_mod_diagnostics.r')
 
 data <- readRDS('data.rds')
 
+codes <- 
+  lapply(data$codes, function(x) x[order(x$code), ])
+
 d <- data$data
 dis_matrix <- data$dist_islands
 
@@ -48,9 +51,17 @@ unique(dat$plant_invasive_rank)
 
 dat$plant_invasive_rank[which(is.na(dat$plant_invasive_rank))] <- 4
 
-# fruit predation
-dat$rodent_all <- ifelse(dat$Unknown == 15, 1, 0)
-dat$rodent_all <- ifelse((dat$rodent_all + dat$Rodent) > 0, 1, 0)
+mean(dat$Arthropod > 0)
+mean(dat$Rodent > 0)
+dat[dat$Unknown == 15, ] |> print(n = 45)
+predation <- dat$Arthropod + dat$Rodent
+predation[which(dat$Unknown == 15)] <- 15
+dat$predation <- predation
+mean(dat$Lizard > 0)
+mean(dat$Bird > 0)
+dat$dispersion <- dat$Lizard + dat$Bird
+dat$rodent_all <- dat$Rodent
+dat$rodent_all[which(dat$Unknown == 15)] <- 15
 
 dat <- lapply(dat, FUN = function(x) if (is.factor(x)) as.numeric(x) else x)
 
@@ -77,13 +88,13 @@ dat$na_bush <- indx_na_bush
 
 # =============== Effects of latitude ==========
 
-file <- paste0(getwd(), '/mod_latitude.stan')
-fit_latitude <- cmdstan_model(file, compile = T)
+file <- paste0(getwd(), '/mod_latitud_total.stan')
+fit_latitude_tot <- cmdstan_model(file, compile = T)
 
-# =============== all frugivores 
+# =============== all frugivores  ======================
 
-mod_latitude <- 
-  fit_latitude$sample(
+mod_latitude_tot <- 
+  fit_latitude_tot$sample(
     data = dat, 
     chains = 4,
     parallel_chains = 4,
@@ -93,18 +104,18 @@ mod_latitude <-
     seed = 23061993
   )
 
-sum_latitude <- mod_latitude$summary()
-mod_diagnostics(mod_latitude, sum_latitude)
-ppcheck_latitude <- mod_latitude$draws('ppcheck', format = 'matrix')
+sum_latitude_tot <- mod_latitude_tot$summary()
+mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
+ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$total_remotion), main = '', 
      xlab = 'Total fruits removal', ylim = c(0, 0.1))
-for (i in 1:200) lines(density(ppcheck_latitude[i, ], lwd = 0.1))
+for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ], lwd = 0.1))
 lines(density(dat$total_remotion), lwd = 2, col = 'red')
 
 
-post_altitude <- 
-  mod_latitude$draws(c('alpha', 
+post_altitude_tot <- 
+  mod_latitude_tot$draws(c('alpha', 
                        'beta_lat', 
                        # 'beta_H_pop', 
                        # 'beta_H_foot',
@@ -122,7 +133,7 @@ post_altitude <-
                        'p_ecoR', 'p_biome'), 
                      format = 'df')
 
-post_altitude <- 
+post_altitude_tot <- 
   lapply(c('alpha', 
            'beta_lat', 
            # 'beta_H_pop', 
@@ -140,10 +151,10 @@ post_altitude <-
            'p_plant', 'p_realm', 
            'p_ecoR', 'p_biome'), FUN = 
            function(x) {
-             post_altitude[, grep(x, colnames(post_altitude))]
+             post_altitude_tot[, grep(x, colnames(post_altitude_tot))]
            })
 
-names(post_altitude) <- c('alpha', 
+names(post_altitude_tot) <- c('alpha', 
                           'beta', 
                           # 'beta_H_pop', 
                           # 'beta_H_foot',
@@ -160,6 +171,53 @@ names(post_altitude) <- c('alpha',
                           'p_plant', 'p_realm', 
                           'p_ecoR', 'p_biome')
 
+
+# ======== functions for extracting effects =======
+
+average_effects <- function(n_levels, 
+                            posterior,
+                            x_var1,
+                            x_var2, 
+                            par1, 
+                            par2) {
+  
+  y <- lapply(1:n_levels, FUN =
+                function(i) {
+
+                  indx_xvar <- which(dat[[x_var1]] == i)
+                  indx_xvar2 <- unique(dat[[x_var2]][indx_xvar])
+                  indx_count <- unique(dat$country[indx_xvar])
+                  indx_is <- unique(dat$island[indx_xvar])
+                  indx_grid <- unique(dat$grid[indx_xvar])
+                  indx_plant <- unique(dat$plant_ID[indx_xvar])
+                  indx_ecoR <- unique(dat$ecoregion[indx_xvar])
+                  indx_biome <- unique(dat$biome[indx_xvar])
+
+                  est <-
+                    with(posterior,
+                         {
+                           inv_logit(alpha[[1]] +
+                                       posterior[[par1]][[i]] +
+                                       apply(posterior[[par2]][, indx_xvar2],
+                                             1, mean) +
+                                       apply(p_island[, indx_is], 1, mean) +
+                                       apply(p_country[, indx_count], 1, mean) +
+                                       apply(p_grid[, indx_grid], 1, mean) +
+                                       apply(p_plant[, indx_plant], 1, mean) +
+                                       apply(p_ecoR[, indx_ecoR], 1, mean) +
+                                       apply(p_biome[, indx_biome], 1, mean))
+                         })
+
+                  tibble(y = est,
+                         code = i,
+                         x = x_var1)
+
+                })
+   
+  do.call('rbind', y)
+  
+}
+
 cond_effects <- function(posterior, 
                          x_bar, 
                          slope, 
@@ -174,19 +232,19 @@ cond_effects <- function(posterior,
                   x <- x_seq[i]
                   
                   est <- 
-                  with(posterior, 
-                       {
-                         inv_logit(alpha[[1]] +
-                           beta[[slope]] * x +
-                           apply(TI, 1, mean) +
-                           apply(p_island, 1, mean) +
-                           apply(p_country, 1, mean) +
-                           apply(p_grid, 1, mean) +
-                           apply(p_plant, 1, mean) +
-                           apply(p_realm, 1, mean) +
-                           apply(p_ecoR, 1, mean) +
-                           apply(p_biome, 1, mean))
-                       })
+                    with(posterior, 
+                         {
+                           inv_logit(alpha[[1]] +
+                                       beta[[slope]] * x +
+                                       apply(TI, 1, mean) +
+                                       apply(p_island, 1, mean) +
+                                       apply(p_country, 1, mean) +
+                                       apply(p_grid, 1, mean) +
+                                       apply(p_plant, 1, mean) +
+                                       apply(p_realm, 1, mean) +
+                                       apply(p_ecoR, 1, mean) +
+                                       apply(p_biome, 1, mean))
+                         })
                   
                   if (type == 'averaging') {
                     tibble(x = x, 
@@ -218,23 +276,74 @@ cond_effects <- function(posterior,
 }
 
 
-est_latitude <- cond_effects(posterior = post_altitude, 
-                             x_bar = dat$lat, 
-                             slope = 'beta_lat', 
-                             type = 'random', 
-                             n = 100)
+# est_latitude_tot <- cond_effects(posterior = post_altitude, 
+#                              x_bar = dat$lat, 
+#                              slope = 'beta_lat', 
+#                              type = 'random', 
+#                              n = 100)
+# 
+# plot(dat$lat, dat$total_remotion, cex = 0.1)
+# est_latitude_tot %$% lines(x, y)
+# est_latitude_tot %$% lines(x, li, lty = 3)
+# est_latitude_tot %$% lines(x, ls, lty = 3)
+# 
+# est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
+# est_latitude_tot %$% lines(x, li, lty = 3)
+# est_latitude_tot %$% lines(x, ls, lty = 3)
+# 
+# plot(NULL, xlim = c(-3, 3), ylim = c(0, 0.8))
+# for(i in seq_along(post_altitude$p_realm)) {
+#   lines(density(post_altitude$p_realm[[i]]), col = i)
+#}
 
-plot(dat$lat, dat$total_remotion, cex = 0.1)
-est_latitude %$% lines(x, y)
-est_latitude %$% lines(x, li, lty = 3)
-est_latitude %$% lines(x, ls, lty = 3)
+# ======= Plots =====
+# 
+# ============= Slops ===========
+
+rbind(pivot_longer(post_altitude_tot$beta, 'beta_lat') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Latitude')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3)
 
 
-est_latitude %$% plot(x, y, type = 'l', ylim = c(0, 1))
-est_latitude %$% lines(x, li, lty = 3)
-est_latitude %$% lines(x, ls, lty = 3)
+# ============= type island ======
 
 
+TI_tot <- average_effects(n_levels = ncol(post_altitude_tot$TI),
+                          posterior = post_altitude_tot, 
+                          x_var1 = 'island_type', 
+                          x_var2 = 'realm', 
+                          par1 = 'TI', 
+                          par2 = 'p_realm')
 
 
+TI_tot <- full_join(TI_tot, codes$island_type, 'code')
 
+
+rbind(TI_tot |> 
+        mutate(type = 'Frugivory')) |> 
+  group_by(type, island, x) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975),
+            type = type,
+            island = island
+            ) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls)) +
+  geom_errorbar(width = 0) +
+  geom_point() +
+  facet_wrap(~type) +
+  lims(y = c(0, 1)) +
+  labs(y = 'P(fruit consumption)', x = 'Type of island')
