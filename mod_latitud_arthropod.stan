@@ -100,7 +100,8 @@ functions{
       real alpha;
       
       // population effects
-      vector[N_type_island] TI; // main effect
+      vector[N_type_island] TI; 
+      vector[N_realm] p_realm;
       //vector[N_plant_invasive_rank] inv_rank;
       real beta_lat; // main effect
       // real beta_H_pop;
@@ -133,11 +134,6 @@ functions{
       vector[N_plant] z_plant;
       real mu_plant;
       real<lower = 0> sigma_plant;
-      
-      // realm
-      vector[N_realm] z_realm;
-      real mu_realm;
-      real<lower = 0> sigma_realm;
       
       // ecoregion
       vector[N_ecoregion] z_ecoR;
@@ -183,10 +179,6 @@ functions{
       vector[N_plant] p_plant;
       p_plant = mu_plant + z_plant * sigma_plant;
       
-      // realm
-      vector[N_realm] p_realm;
-      p_realm = mu_realm + z_realm * sigma_realm;
-      
       // ecoregion
       vector[N_ecoregion] p_ecoR;
       p_ecoR = mu_ecoR + z_ecoR * sigma_ecoR;
@@ -209,7 +201,8 @@ functions{
       
       // Population effects
       TI ~ normal(0, 1);
-      // inv_rank;
+      p_realm ~ normal(0, 1);
+      // inv_rank ~ normal(0, 1);
       beta_lat ~ normal(0, 1); // main effect
       //beta_H_pop ~  ~ normal(0, 1)normal(0, 1);
       //beta_H_foot ~ normal(0, 1);
@@ -240,11 +233,6 @@ functions{
       z_plant ~ normal(0, 1);
       mu_plant ~ normal(0, 0.5);
       sigma_plant ~ exponential(1);
-      
-      // realm
-      z_realm ~ normal(0, 1);
-      mu_realm ~ normal(0, 0.5);
-      sigma_realm ~ exponential(1);
       
       // Ecoregion
       z_ecoR ~ normal(0, 1);
