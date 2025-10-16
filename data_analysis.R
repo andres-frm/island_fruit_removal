@@ -1274,7 +1274,7 @@ post_altitude_tot <-
                        # 'beta_I_mainland', 
                        # 'beta_I_altitude',
                        # 'beta_I_alt', 
-                       'beta_I_altitude',
+                       'beta_I_alt',
                        # 'beta_temp', 
                        # 'beta_NV',
                        # 'beta_bush', 
@@ -1293,7 +1293,7 @@ post_altitude_tot <-
            # 'beta_I_mainland', 
            # 'beta_I_altitude',
            # 'beta_I_alt', 
-           'beta_I_altitude',
+           'beta_I_alt',
            # 'beta_temp', 
            # 'beta_NV',
            # 'beta_bush', 
@@ -1358,7 +1358,7 @@ post_altitude_disp <-
                         # 'beta_I_mainland', 
                         # 'beta_I_altitude',
                         # 'beta_I_alt', 
-                        'beta_I_altitude',
+                        'beta_I_alt',
                         # 'beta_temp', 
                         # 'beta_NV',
                         # 'beta_bush', 
@@ -1377,7 +1377,7 @@ post_altitude_disp <-
            # 'beta_I_mainland', 
            # 'beta_I_altitude',
            # 'beta_I_alt', 
-           'beta_I_altitude',
+           'beta_I_alt',
            # 'beta_temp', 
            # 'beta_NV',
            # 'beta_bush', 
@@ -1443,7 +1443,7 @@ post_altitude_pred <-
                         # 'beta_I_mainland', 
                         # 'beta_I_altitude',
                         # 'beta_I_alt', 
-                        'beta_I_altitude',
+                        'beta_I_alt',
                         # 'beta_temp', 
                         # 'beta_NV',
                         # 'beta_bush', 
@@ -1462,7 +1462,7 @@ post_altitude_pred <-
            # 'beta_I_mainland', 
            # 'beta_I_altitude',
            # 'beta_I_alt', 
-           'beta_I_altitude',
+           'beta_I_alt',
            # 'beta_temp', 
            # 'beta_NV',
            # 'beta_bush', 
@@ -1528,13 +1528,13 @@ est_latitude_tot %$% lines(x, ls, lty = 3)
 
 # error bars
 
-rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_altitude') |> 
+rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
         mutate(type = 'Frugivory', 
                effect = 'Island altitude'), 
-      pivot_longer(post_altitude_disp$beta, 'beta_I_altitude') |> 
+      pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Island altitude'), 
-      pivot_longer(post_altitude_pred$beta, 'beta_I_altitude') |> 
+      pivot_longer(post_altitude_pred$beta, 'beta_I_alt') |> 
         mutate(type = 'Seed predation', 
                effect = 'Island altitude')) |> 
   group_by(type) |> 
