@@ -1,9 +1,13 @@
+# ======== Loading packages =======
+
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
          'cowplot'), 
        library, character.only = T)
 
 source('functions_mod_diagnostics.r')
+
+# ======== Data preparation =======
 
 data <- readRDS('data.rds')
 
@@ -84,95 +88,7 @@ dat$N_plant_invasive_rank <- max(dat$plant_invasive_rank)
 dat$N_na_bush <- length(indx_na_bush)
 dat$na_bush <- indx_na_bush
 
-# =============== Macroecological processes ===========
-
-# =============== Effects of latitude ==========
-
-file <- paste0(getwd(), '/mod_latitud_total.stan')
-fit_latitude_tot <- cmdstan_model(file, compile = T)
-
-# =============== all frugivores  ======================
-
-mod_latitude_tot <- 
-  fit_latitude_tot$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-
-sum_latitude_tot <- mod_latitude_tot$summary()
-mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
-ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$total_remotion), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.1))
-for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ], lwd = 0.1))
-lines(density(dat$total_remotion), lwd = 2, col = 'red')
-
-
-post_altitude_tot <- 
-  mod_latitude_tot$draws(c('alpha', 
-                       'beta_lat', 
-                       # 'beta_H_pop', 
-                       # 'beta_H_foot',
-                       # 'beta_I_mainland', 
-                       # 'beta_I_size',
-                       # 'beta_I_alt', 
-                       # 'beta_I_isolation',
-                       # 'beta_temp', 
-                       # 'beta_NV',
-                       # 'beta_bush', 
-                       # 'inv_rank', 
-                       'TI', 'p_island', 
-                       'p_country', 'p_grid', 
-                       'p_plant', 'p_realm', 
-                       'p_ecoR', 'p_biome'), 
-                     format = 'df')
-
-post_altitude_tot <- 
-  lapply(c('alpha', 
-           'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_size',
-           # 'beta_I_alt', 
-           # 'beta_I_isolation',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_tot[, grep(x, colnames(post_altitude_tot))]
-           })
-
-names(post_altitude_tot) <- c('alpha', 
-                          'beta', 
-                          # 'beta_H_pop', 
-                          # 'beta_H_foot',
-                          # 'beta_I_mainland', 
-                          # 'beta_I_size',
-                          # 'beta_I_alt', 
-                          # 'beta_I_isolation',
-                          # 'beta_temp', 
-                          # 'beta_NV',
-                          # 'beta_bush', 
-                          # 'inv_rank', 
-                          'TI', 'p_island', 
-                          'p_country', 'p_grid', 
-                          'p_plant', 'p_realm', 
-                          'p_ecoR', 'p_biome')
-
-
-# ======== functions for extracting effects =======
+# ======== Custom functions  =======
 
 average_effects <- function(n_levels, 
                             posterior,
@@ -183,7 +99,7 @@ average_effects <- function(n_levels,
   
   y <- lapply(1:n_levels, FUN =
                 function(i) {
-
+                  
                   indx_xvar <- which(dat[[x_var1]] == i)
                   indx_xvar2 <- unique(dat[[x_var2]][indx_xvar])
                   indx_count <- unique(dat$country[indx_xvar])
@@ -192,7 +108,7 @@ average_effects <- function(n_levels,
                   indx_plant <- unique(dat$plant_ID[indx_xvar])
                   indx_ecoR <- unique(dat$ecoregion[indx_xvar])
                   indx_biome <- unique(dat$biome[indx_xvar])
-
+                  
                   est <-
                     with(posterior,
                          {
@@ -207,13 +123,13 @@ average_effects <- function(n_levels,
                                        apply(p_ecoR[, indx_ecoR], 1, mean) +
                                        apply(p_biome[, indx_biome], 1, mean))
                          })
-
+                  
                   tibble(y = est,
                          code = i,
                          x = x_var1)
-
+                  
                 })
-   
+  
   do.call('rbind', y)
   
 }
@@ -276,32 +192,310 @@ cond_effects <- function(posterior,
 }
 
 
-# est_latitude_tot <- cond_effects(posterior = post_altitude, 
-#                              x_bar = dat$lat, 
-#                              slope = 'beta_lat', 
-#                              type = 'random', 
-#                              n = 100)
-# 
-# plot(dat$lat, dat$total_remotion, cex = 0.1)
-# est_latitude_tot %$% lines(x, y)
-# est_latitude_tot %$% lines(x, li, lty = 3)
-# est_latitude_tot %$% lines(x, ls, lty = 3)
-# 
-# est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
-# est_latitude_tot %$% lines(x, li, lty = 3)
-# est_latitude_tot %$% lines(x, ls, lty = 3)
-# 
-# plot(NULL, xlim = c(-3, 3), ylim = c(0, 0.8))
-# for(i in seq_along(post_altitude$p_realm)) {
-#   lines(density(post_altitude$p_realm[[i]]), col = i)
-#}
+#########
+# =============== *Biogeographical effects** ===========
+########
+
+# =============== ***Latitude**** ==========
+
+mean(dat$total_remotion)
+
+# =============== Overall frugivory  ======================
+
+file <- paste0(getwd(), '/mod_latitud_total.stan')
+fit_latitude_tot <- cmdstan_model(file, compile = T)
+
+mod_latitude_tot <- 
+  fit_latitude_tot$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_tot <- mod_latitude_tot$summary()
+mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
+ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$total_remotion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.1))
+for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ], lwd = 0.1))
+lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
+
+post_latitude_tot <- 
+  mod_latitude_tot$draws(c('alpha', 
+                       'beta_lat', 
+                       # 'beta_H_pop', 
+                       # 'beta_H_foot',
+                       # 'beta_I_mainland', 
+                       # 'beta_I_size',
+                       # 'beta_I_alt', 
+                       # 'beta_I_isolation',
+                       # 'beta_temp', 
+                       # 'beta_NV',
+                       # 'beta_bush', 
+                       # 'inv_rank', 
+                       'TI', 'p_island', 
+                       'p_country', 'p_grid', 
+                       'p_plant', 'p_realm', 
+                       'p_ecoR', 'p_biome'), 
+                     format = 'df')
+
+post_latitude_tot <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_tot[, grep(x, colnames(post_latitude_tot))]
+           })
+
+names(post_latitude_tot) <- c('alpha', 
+                          'beta', 
+                          # 'beta_H_pop', 
+                          # 'beta_H_foot',
+                          # 'beta_I_mainland', 
+                          # 'beta_I_size',
+                          # 'beta_I_alt', 
+                          # 'beta_I_isolation',
+                          # 'beta_temp', 
+                          # 'beta_NV',
+                          # 'beta_bush', 
+                          # 'inv_rank', 
+                          'TI', 'p_island', 
+                          'p_country', 'p_grid', 
+                          'p_plant', 'p_realm', 
+                          'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit dispersion  ======================
+
+file <- paste0(getwd(), '/mod_latitud_dispersion.stan')
+fit_latitude_disp <- cmdstan_model(file, compile = T)
+
+mod_latitude_disp <- 
+  fit_latitude_disp$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_disp <- mod_latitude_disp$summary()
+mod_diagnostics(mod_latitude_disp, sum_latitude_disp)
+ppcheck_latitude_disp <- mod_latitude_disp$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$dispersion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_latitude_disp[i, ], lwd = 0.1))
+lines(density(dat$dispersion), lwd = 2, col = 'red')
+
+post_latitude_disp <- 
+  mod_latitude_disp$draws(c('alpha', 
+                           'beta_lat', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_size',
+                           # 'beta_I_alt', 
+                           # 'beta_I_isolation',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_latitude_disp <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_disp[, grep(x, colnames(post_latitude_disp))]
+           })
+
+names(post_latitude_disp) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_size',
+                              # 'beta_I_alt', 
+                              # 'beta_I_isolation',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit predation  ======================
+
+file <- paste0(getwd(), '/mod_latitud_predation.stan')
+fit_latitude_pred <- cmdstan_model(file, compile = T)
+
+mod_latitude_pred <- 
+  fit_latitude_pred$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_pred <- mod_latitude_pred$summary()
+mod_diagnostics(mod_latitude_pred, sum_latitude_pred)
+
+ppcheck_latitude_pred <- mod_latitude_pred$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$predation), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_latitude_pred[i, ], lwd = 0.1))
+lines(density(dat$predation), lwd = 2, col = 'red')
+
+post_latitude_pred <- 
+  mod_latitude_pred$draws(c('alpha', 
+                            'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_size',
+                            # 'beta_I_alt', 
+                            # 'beta_I_isolation',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_latitude_pred <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_pred[, grep(x, colnames(post_latitude_pred))]
+           })
+
+names(post_latitude_pred) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_size',
+                               # 'beta_I_alt', 
+                               # 'beta_I_isolation',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
 
 # ======= Plots =====
 # 
 # ============= Slops ===========
 
-rbind(pivot_longer(post_altitude_tot$beta, 'beta_lat') |> 
+est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'random',
+                                 n = 100)
+
+plot(dat$lat, dat$total_remotion, cex = 0.1)
+est_latitude_tot %$% lines(x, y)
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+
+est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'averaging',
+                                 n = 100)
+
+plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
+est_latitude_tot %$% lines(x, y)
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+
+# error bars
+
+rbind(pivot_longer(post_latitude_tot$beta, 'beta_lat') |> 
         mutate(type = 'Frugivory', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_disp$beta, 'beta_lat') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_pred$beta, 'beta_lat') |> 
+        mutate(type = 'Seed predation', 
                effect = 'Latitude')) |> 
   group_by(type) |> 
   transmute(mu = median(value), 
@@ -314,36 +508,414 @@ rbind(pivot_longer(post_altitude_tot$beta, 'beta_lat') |>
   geom_point() +
   geom_errorbar(width = 0) +
   facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3)
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
 
 
-# ============= type island ======
+# ============= ***Type island*** ======
 
 
-TI_tot <- average_effects(n_levels = ncol(post_altitude_tot$TI),
-                          posterior = post_altitude_tot, 
+TI_tot <- average_effects(n_levels = ncol(post_latitude_tot$TI),
+                          posterior = post_latitude_tot, 
                           x_var1 = 'island_type', 
                           x_var2 = 'realm', 
                           par1 = 'TI', 
                           par2 = 'p_realm')
 
+TI_disp <- average_effects(n_levels = ncol(post_latitude_disp$TI),
+                           posterior = post_latitude_disp, 
+                           x_var1 = 'island_type', 
+                           x_var2 = 'realm', 
+                           par1 = 'TI', 
+                           par2 = 'p_realm')
 
-TI_tot <- full_join(TI_tot, codes$island_type, 'code')
+TI_pred <- average_effects(n_levels = ncol(post_latitude_pred$TI),
+                           posterior = post_latitude_pred, 
+                           x_var1 = 'island_type', 
+                           x_var2 = 'realm', 
+                           par1 = 'TI', 
+                           par2 = 'p_realm')
 
 
-rbind(TI_tot |> 
-        mutate(type = 'Frugivory')) |> 
-  group_by(type, island, x) |> 
+rbind(full_join(TI_tot, codes$island_type, 'code') |> 
+        mutate(type = 'Frugivory'), 
+      full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Seed dispersal'), 
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
   transmute(mu = median(y), 
             li = quantile(y, 0.025), 
-            ls = quantile(y, 0.975),
-            type = type,
-            island = island
-            ) |> 
+            ls = quantile(y, 0.975)) |> 
   unique() |> 
-  ggplot(aes(island, mu, ymin = li, ymax = ls)) +
-  geom_errorbar(width = 0) +
-  geom_point() +
-  facet_wrap(~type) +
-  lims(y = c(0, 1)) +
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.2)) +
+  geom_point(position = position_dodge(width = 0.2)) +
+  lims(y = c(0, 0.75)) +
   labs(y = 'P(fruit consumption)', x = 'Type of island')
+
+
+# ====== ***Realm*** =====
+
+realm_tot <- average_effects(n_levels = ncol(post_latitude_tot$p_realm),
+                          posterior = post_latitude_tot, 
+                          x_var1 = 'realm', 
+                          x_var2 = 'island_type', 
+                          par1 = 'p_realm', 
+                          par2 = 'TI')
+
+realm_disp <- average_effects(n_levels = ncol(post_latitude_disp$p_realm),
+                           posterior = post_latitude_disp, 
+                           x_var1 = 'realm', 
+                           x_var2 = 'island_type', 
+                           par1 = 'p_realm', 
+                           par2 = 'TI')
+
+realm_pred <- average_effects(n_levels = ncol(post_latitude_pred$p_realm),
+                           posterior = post_latitude_pred, 
+                           x_var1 = 'realm', 
+                           x_var2 = 'island_type', 
+                           par1 = 'p_realm', 
+                           par2 = 'TI')
+
+
+rbind(full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Frugivory'), 
+      full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'), 
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.3)) +
+  geom_point(position = position_dodge(width = 0.3)) +
+  lims(y = c(0, 0.76)) +
+  labs(y = 'P(fruit consumption)', x = 'Biogeographic realm') +
+  theme(legend.position = 'top')
+
+
+
+
+
+
+# ======== *Regional effects ======
+
+# =============== ***Latitude**** ==========
+
+mean(dat$total_remotion)
+
+# =============== Overall frugivory  ======================
+
+file <- paste0(getwd(), '/mod_latitud_total.stan')
+fit_latitude_tot <- cmdstan_model(file, compile = T)
+
+mod_latitude_tot <- 
+  fit_latitude_tot$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_tot <- mod_latitude_tot$summary()
+mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
+ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$total_remotion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.1))
+for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ], lwd = 0.1))
+lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
+
+post_latitude_tot <- 
+  mod_latitude_tot$draws(c('alpha', 
+                           'beta_lat', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_size',
+                           # 'beta_I_alt', 
+                           # 'beta_I_isolation',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_latitude_tot <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_tot[, grep(x, colnames(post_latitude_tot))]
+           })
+
+names(post_latitude_tot) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_size',
+                              # 'beta_I_alt', 
+                              # 'beta_I_isolation',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit dispersion  ======================
+
+file <- paste0(getwd(), '/mod_latitud_dispersion.stan')
+fit_latitude_disp <- cmdstan_model(file, compile = T)
+
+mod_latitude_disp <- 
+  fit_latitude_disp$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_disp <- mod_latitude_disp$summary()
+mod_diagnostics(mod_latitude_disp, sum_latitude_disp)
+ppcheck_latitude_disp <- mod_latitude_disp$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$dispersion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_latitude_disp[i, ], lwd = 0.1))
+lines(density(dat$dispersion), lwd = 2, col = 'red')
+
+post_latitude_disp <- 
+  mod_latitude_disp$draws(c('alpha', 
+                            'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_size',
+                            # 'beta_I_alt', 
+                            # 'beta_I_isolation',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_latitude_disp <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_disp[, grep(x, colnames(post_latitude_disp))]
+           })
+
+names(post_latitude_disp) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_size',
+                               # 'beta_I_alt', 
+                               # 'beta_I_isolation',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit predation  ======================
+
+file <- paste0(getwd(), '/mod_latitud_predation.stan')
+fit_latitude_pred <- cmdstan_model(file, compile = T)
+
+mod_latitude_pred <- 
+  fit_latitude_pred$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_latitude_pred <- mod_latitude_pred$summary()
+mod_diagnostics(mod_latitude_pred, sum_latitude_pred)
+
+ppcheck_latitude_pred <- mod_latitude_pred$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$predation), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_latitude_pred[i, ], lwd = 0.1))
+lines(density(dat$predation), lwd = 2, col = 'red')
+
+post_latitude_pred <- 
+  mod_latitude_pred$draws(c('alpha', 
+                            'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_size',
+                            # 'beta_I_alt', 
+                            # 'beta_I_isolation',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_latitude_pred <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_pred[, grep(x, colnames(post_latitude_pred))]
+           })
+
+names(post_latitude_pred) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_size',
+                               # 'beta_I_alt', 
+                               # 'beta_I_isolation',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+# ======= Plots =====
+# 
+# ============= Slops ===========
+
+est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'random',
+                                 n = 100)
+
+plot(dat$lat, dat$total_remotion, cex = 0.1)
+est_latitude_tot %$% lines(x, y)
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+
+est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'averaging',
+                                 n = 100)
+
+plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
+est_latitude_tot %$% lines(x, y)
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+
+# error bars
+
+rbind(pivot_longer(post_latitude_tot$beta, 'beta_lat') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_disp$beta, 'beta_lat') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_pred$beta, 'beta_lat') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Latitude')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
