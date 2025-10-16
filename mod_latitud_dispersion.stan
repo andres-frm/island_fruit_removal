@@ -61,7 +61,8 @@ functions{
       array[N] int Bird;
       array[N] int Lizard;
       array[N] int Mammal_non_rodent;
-      array[N] int rodent_all; // 1/0 response (use a Bernoulli)
+      array[N] int rodent_all; 
+      array[N] int dispersion;
       // propulation effects
       vector[N] lat;
       array[N] int plant_invasive_rank;
