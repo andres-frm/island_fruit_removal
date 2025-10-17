@@ -1498,6 +1498,33 @@ names(post_altitude_pred) <- c('alpha',
 # 
 # ============= Slops ===========
 
+# error bars
+
+rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Island altitude'), 
+      pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Island altitude'), 
+      pivot_longer(post_altitude_pred$beta, 'beta_I_alt') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Island altitude')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+# Scatter plots
+
 est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
                                  x_bar = dat$lat,
                                  slope = 'beta_lat',
@@ -1526,17 +1553,283 @@ est_latitude_tot %$% lines(x, li, lty = 3)
 est_latitude_tot %$% lines(x, ls, lty = 3)
 
 
+
+
+
+
+
+
+# =============== *Humman footprint* ==========
+
+# =============== Overall frugivory  ======================
+
+file <- paste0(getwd(), '/mod_footprint_total.stan')
+fit_footprint_tot <- cmdstan_model(file, compile = T)
+
+mod_footprint_tot <- 
+  fit_footprint_tot$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_footprint_tot <- mod_footprint_tot$summary()
+mod_diagnostics(mod_footprint_tot, sum_footprint_tot)
+ppcheck_footprint_tot <- mod_footprint_tot$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$total_remotion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.1))
+for (i in 1:200) lines(density(ppcheck_footprint_tot[i, ], lwd = 0.1))
+lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
+
+post_footprint_tot <- 
+  mod_footprint_tot$draws(c('alpha', 
+                           #'beta_lat', 
+                           # 'beta_H_pop', 
+                           'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           #'beta_I_footprint',
+                           # 'beta_I_alt', 
+                           #'beta_I_alt',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_footprint_tot <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_footprint',
+           # 'beta_I_alt', 
+           'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_footprint_tot[, grep(x, colnames(post_footprint_tot))]
+           })
+
+names(post_footprint_tot) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_footprint',
+                              # 'beta_I_alt', 
+                              #'beta_I_footprint',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit dispersion  ======================
+
+file <- paste0(getwd(), '/mod_footprint_dispersion.stan')
+fit_footprint_disp <- cmdstan_model(file, compile = T)
+
+mod_footprint_disp <- 
+  fit_footprint_disp$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_footprint_disp <- mod_footprint_disp$summary()
+mod_diagnostics(mod_footprint_disp, sum_footprint_disp)
+ppcheck_footprint_disp <- mod_footprint_disp$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$dispersion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_footprint_disp[i, ], lwd = 0.1))
+lines(density(dat$dispersion), lwd = 2, col = 'red')
+
+post_footprint_disp <- 
+  mod_footprint_disp$draws(c('alpha', 
+                            # 'beta_lat', 
+                            # 'beta_H_pop', 
+                            'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_footprint',
+                            # 'beta_I_alt', 
+                            # 'beta_I_alt',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_footprint_disp <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_footprint',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_footprint_disp[, grep(x, colnames(post_footprint_disp))]
+           })
+
+names(post_footprint_disp) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_footprint',
+                               # 'beta_I_alt', 
+                               # 'beta_I_footprint',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit predation  ======================
+
+file <- paste0(getwd(), '/mod_footprint_predation.stan')
+fit_footprint_pred <- cmdstan_model(file, compile = T)
+
+mod_footprint_pred <- 
+  fit_footprint_pred$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_footprint_pred <- mod_footprint_pred$summary()
+mod_diagnostics(mod_footprint_pred, sum_footprint_pred)
+
+ppcheck_footprint_pred <- mod_footprint_pred$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$predation), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_footprint_pred[i, ], lwd = 0.1))
+lines(density(dat$predation), lwd = 2, col = 'red')
+
+post_footprint_pred <- 
+  mod_footprint_pred$draws(c('alpha', 
+                            # 'beta_lat', 
+                            # 'beta_H_pop', 
+                            'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_footprint',
+                            # 'beta_I_alt', 
+                            #'beta_I_alt',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_footprint_pred <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_footprint',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_footprint_pred[, grep(x, colnames(post_footprint_pred))]
+           })
+
+names(post_footprint_pred) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_footprint',
+                               # 'beta_I_alt', 
+                               # 'beta_I_footprint',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+# ======= Plots =====
+# 
+# ============= Slops ===========
+
 # error bars
 
-rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
+rbind(pivot_longer(post_footprint_tot$beta, 'beta_H_foot') |> 
         mutate(type = 'Frugivory', 
-               effect = 'Island altitude'), 
-      pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
+               effect = 'Human footprint'), 
+      pivot_longer(post_footprint_disp$beta, 'beta_H_foot') |> 
         mutate(type = 'Seed dispersion', 
-               effect = 'Island altitude'), 
-      pivot_longer(post_altitude_pred$beta, 'beta_I_alt') |> 
+               effect = 'Human footprint'), 
+      pivot_longer(post_footprint_pred$beta, 'beta_H_foot') |> 
         mutate(type = 'Seed predation', 
-               effect = 'Island altitude')) |> 
+               effect = 'Human footprint')) |> 
   group_by(type) |> 
   transmute(mu = median(value), 
             li = quantile(value, 0.025), 
@@ -1550,6 +1843,307 @@ rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |>
   facet_wrap(~ effect) +
   geom_hline(yintercept = 0, linetype = 3) +
   labs()
+
+# Scatter plots
+
+
+
+
+
+
+
+
+
+
+
+
+# =============== *Native vegetation* ==========
+
+# =============== Overall frugivory  ======================
+
+file <- paste0(getwd(), '/mod_nativeV_total.stan')
+fit_nativeV_tot <- cmdstan_model(file, compile = T)
+
+mod_nativeV_tot <- 
+  fit_nativeV_tot$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_nativeV_tot <- mod_nativeV_tot$summary()
+mod_diagnostics(mod_nativeV_tot, sum_nativeV_tot)
+ppcheck_nativeV_tot <- mod_nativeV_tot$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$total_remotion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.1))
+for (i in 1:200) lines(density(ppcheck_nativeV_tot[i, ], lwd = 0.1))
+lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
+
+post_nativeV_tot <- 
+  mod_nativeV_tot$draws(c('alpha', 
+                            #'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            #'beta_I_nativeV',
+                            # 'beta_I_alt', 
+                            #'beta_I_alt',
+                            # 'beta_temp', 
+                            'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_nativeV_tot <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           #'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_nativeV',
+           # 'beta_I_alt', 
+           #'beta_I_alt',
+           # 'beta_temp', 
+           'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_nativeV_tot[, grep(x, colnames(post_nativeV_tot))]
+           })
+
+names(post_nativeV_tot) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_nativeV',
+                               # 'beta_I_alt', 
+                               #'beta_I_nativeV',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit dispersion  ======================
+
+file <- paste0(getwd(), '/mod_nativeV_dispersion.stan')
+fit_nativeV_disp <- cmdstan_model(file, compile = T)
+
+mod_nativeV_disp <- 
+  fit_nativeV_disp$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_nativeV_disp <- mod_nativeV_disp$summary()
+mod_diagnostics(mod_nativeV_disp, sum_nativeV_disp)
+ppcheck_nativeV_disp <- mod_nativeV_disp$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$dispersion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_nativeV_disp[i, ], lwd = 0.1))
+lines(density(dat$dispersion), lwd = 2, col = 'red')
+
+post_nativeV_disp <- 
+  mod_nativeV_disp$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             #'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_nativeV',
+                             # 'beta_I_alt', 
+                             # 'beta_I_alt',
+                             # 'beta_temp', 
+                             'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_nativeV_disp <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_nativeV',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_nativeV_disp[, grep(x, colnames(post_nativeV_disp))]
+           })
+
+names(post_nativeV_disp) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_nativeV',
+                                # 'beta_I_alt', 
+                                # 'beta_I_nativeV',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit predation  ======================
+
+file <- paste0(getwd(), '/mod_nativeV_predation.stan')
+fit_nativeV_pred <- cmdstan_model(file, compile = T)
+
+mod_nativeV_pred <- 
+  fit_nativeV_pred$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_nativeV_pred <- mod_nativeV_pred$summary()
+mod_diagnostics(mod_nativeV_pred, sum_nativeV_pred)
+
+ppcheck_nativeV_pred <- mod_nativeV_pred$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$predation), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_nativeV_pred[i, ], lwd = 0.1))
+lines(density(dat$predation), lwd = 2, col = 'red')
+
+post_nativeV_pred <- 
+  mod_nativeV_pred$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             # 'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_nativeV',
+                             # 'beta_I_alt', 
+                             #'beta_I_alt',
+                             # 'beta_temp', 
+                             'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_nativeV_pred <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_nativeV',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_nativeV_pred[, grep(x, colnames(post_nativeV_pred))]
+           })
+
+names(post_nativeV_pred) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_nativeV',
+                                # 'beta_I_alt', 
+                                # 'beta_I_nativeV',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+
+# ======= Plots =====
+# 
+# ============= Slops ===========
+
+# error bars
+
+rbind(pivot_longer(post_nativeV_tot$beta, 'beta_NV') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Native cover'), 
+      pivot_longer(post_nativeV_disp$beta, 'beta_NV') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Native cover'), 
+      pivot_longer(post_nativeV_pred$beta, 'beta_NV') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Native cover')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+# Scatter plots
+
 
 
 
