@@ -2152,3 +2152,302 @@ rbind(pivot_longer(post_nativeV_tot$beta, 'beta_NV') |>
 
 
 
+
+
+
+# =============== *Bush cover* ==========
+
+# =============== Overall frugivory  ======================
+
+file <- paste0(getwd(), '/mod_bush_total.stan')
+fit_bush_tot <- cmdstan_model(file, compile = T)
+
+mod_bush_tot <- 
+  fit_bush_tot$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_bush_tot <- mod_bush_tot$summary()
+mod_diagnostics(mod_bush_tot, sum_bush_tot)
+ppcheck_bush_tot <- mod_bush_tot$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$total_remotion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.1))
+for (i in 1:200) lines(density(ppcheck_bush_tot[i, ], lwd = 0.1))
+lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
+
+post_bush_tot <- 
+  mod_bush_tot$draws(c('alpha', 
+                          #'beta_lat', 
+                          # 'beta_H_pop', 
+                          # 'beta_H_foot',
+                          # 'beta_I_mainland', 
+                          #'beta_I_bush',
+                          # 'beta_I_alt', 
+                          #'beta_I_alt',
+                          # 'beta_temp', 
+                          # 'beta_NV',
+                          'beta_bush',
+                          # 'inv_rank', 
+                          'TI', 'p_island', 
+                          'p_country', 'p_grid', 
+                          'p_plant', 'p_realm', 
+                          'p_ecoR', 'p_biome'), 
+                        format = 'df')
+
+post_bush_tot <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           #'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_bush',
+           # 'beta_I_alt', 
+           #'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           'beta_bush',
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_bush_tot[, grep(x, colnames(post_bush_tot))]
+           })
+
+names(post_bush_tot) <- c('alpha', 
+                             'beta', 
+                             # 'beta_H_pop', 
+                             # 'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_bush',
+                             # 'beta_I_alt', 
+                             #'beta_I_bush',
+                             # 'beta_temp', 
+                             # 'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit dispersion  ======================
+
+file <- paste0(getwd(), '/mod_bush_dispersion.stan')
+fit_bush_disp <- cmdstan_model(file, compile = T)
+
+mod_bush_disp <- 
+  fit_bush_disp$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_bush_disp <- mod_bush_disp$summary()
+mod_diagnostics(mod_bush_disp, sum_bush_disp)
+ppcheck_bush_disp <- mod_bush_disp$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$dispersion), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_bush_disp[i, ], lwd = 0.1))
+lines(density(dat$dispersion), lwd = 2, col = 'red')
+
+post_bush_disp <- 
+  mod_bush_disp$draws(c('alpha', 
+                           # 'beta_lat', 
+                           # 'beta_H_pop', 
+                           #'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_bush',
+                           # 'beta_I_alt', 
+                           # 'beta_I_alt',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           'beta_bush',
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_bush_disp <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_bush',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           'beta_bush',
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_bush_disp[, grep(x, colnames(post_bush_disp))]
+           })
+
+names(post_bush_disp) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_bush',
+                              # 'beta_I_alt', 
+                              # 'beta_I_bush',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# =============== Fruit predation  ======================
+
+file <- paste0(getwd(), '/mod_bush_predation.stan')
+fit_bush_pred <- cmdstan_model(file, compile = T)
+
+mod_bush_pred <- 
+  fit_bush_pred$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+sum_bush_pred <- mod_bush_pred$summary()
+mod_diagnostics(mod_bush_pred, sum_bush_pred)
+
+ppcheck_bush_pred <- mod_bush_pred$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$predation), main = '', 
+     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+for (i in 1:200) lines(density(ppcheck_bush_pred[i, ], lwd = 0.1))
+lines(density(dat$predation), lwd = 2, col = 'red')
+
+post_bush_pred <- 
+  mod_bush_pred$draws(c('alpha', 
+                           # 'beta_lat', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_bush',
+                           # 'beta_I_alt', 
+                           #'beta_I_alt',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           'beta_bush',
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_bush_pred <- 
+  lapply(c('alpha', 
+           # 'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_bush',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           'beta_bush',
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_bush_pred[, grep(x, colnames(post_bush_pred))]
+           })
+
+names(post_bush_pred) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_bush',
+                              # 'beta_I_alt', 
+                              # 'beta_I_bush',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# ======= Plots =====
+# 
+# ============= Slops ===========
+
+# error bars
+
+rbind(pivot_longer(post_bush_tot$beta, 'beta_bush') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Bush cover'), 
+      pivot_longer(post_bush_disp$beta, 'beta_bush') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Bush cover'), 
+      pivot_longer(post_bush_pred$beta, 'beta_bush') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Bush cover')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+# Scatter plots
+
+
+mean(post_bush_pred$beta$beta_bush < 0)
+
+
+
+
+
+
+
