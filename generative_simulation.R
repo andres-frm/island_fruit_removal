@@ -61,7 +61,7 @@ plants <- rnorm(nrow(sim_data), 0, 0.01) # pars plant
 grid <- rnorm(max(sim_data$grid), 0, 0.015) # pars grid
 country <- rnorm(max(sim_data$country2), 0, 1) # pars countries
                  
-type_island <- c(-0.5, 0.75, 0.25) # par type of island
+type_island <- c(-1.5, 1.75, 0.25) # par type of island
 
 # continuous variables
 sim_alt <- 
@@ -235,7 +235,7 @@ cat(file = 'generative_simulation.stan',
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
@@ -466,7 +466,7 @@ compare_posterior <-
     post$x <- 1:nrow(post)
     post$real <- real
     
-    plot(NULL, xlim = c(0, nrow(post)), ylim = c(-7, 7), 
+    plot(NULL, xlim = c(0, nrow(post)), ylim = c(-10, 10), 
          ylab = ylab, xlab = xlab, 
          main = main)
     post %$% 
@@ -502,7 +502,7 @@ compare_posterior(posterior_pars$plant,
                   plants, 
                   xlab = 'Plants', 
                   ylab = 'Posterior mean', 
-                  main = 'PLant parameters')
+                  main = 'Plant parameters')
 
 # grids
 
@@ -521,6 +521,8 @@ plot(density(posterior_pars$beta_alt$beta_alt),
 abline(v = beta_alt, col = 'red', lwd = 2)
 
 # effect altitude ok
+
+mod_gen_sim$save_object('mod_gen1.rds')
 
 # ===== Effect type of island =====
 
@@ -541,7 +543,7 @@ cat(file = 'generative_simulation.stan',
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
@@ -803,6 +805,7 @@ compare_posterior(posterior_pars$TI,
                   ylab = 'Posterior mean',
                   main = 'Type of island parameters')
 
+mod_gen_sim$save_object('mod_gen2.rds')
 
 # effect of island type ok 
 # 
@@ -824,7 +827,7 @@ cat(file = 'generative_simulation.stan',
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
@@ -935,7 +938,7 @@ cat(file = 'generative_simulation.stan',
       // beta_bush ~ normal(0, 1);
       
       // GP islands
-      eta ~ exponential(4);
+      eta ~ exponential(3);
       rho ~ exponential(1);
       z_islands ~ normal(0, 1);
       
@@ -954,8 +957,7 @@ cat(file = 'generative_simulation.stan',
       mu_plant ~ normal(0, 0.5);
       sigma_plant ~ exponential(1);
       
-      fruit_removal ~ binomial(15, 
-                               inv_logit(
+      fruit_removal ~ binomial_logit(15, 
                                alpha +
                                // beta_alt * altitude +
                                beta_iso * island_isolation +
@@ -965,8 +967,7 @@ cat(file = 'generative_simulation.stan',
                                country[country_ID] +
                                island[islands_ID] +
                                grid[grid_ID] +
-                               plant[plant_ID]
-                               ));
+                               plant[plant_ID]);
     }
     
     generated quantities {
@@ -1089,6 +1090,8 @@ plot(density(posterior_pars$beta_iso$beta_iso), main = '',
      xlab = expression(beta['island isolation']))
 abline(v = beta_isolation, lwd = 2, col = 'red')
 
+mod_gen_sim$save_object('mod_gen3.rds')
+
 #======= Effect bush =======
 
 cat(file = 'generative_simulation.stan', 
@@ -1107,7 +1110,7 @@ cat(file = 'generative_simulation.stan',
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
@@ -1218,7 +1221,7 @@ cat(file = 'generative_simulation.stan',
       beta_bush ~ normal(0, 1);
       
       // GP islands
-      eta ~ exponential(4);
+      eta ~ exponential(3);
       rho ~ exponential(1);
       z_islands ~ normal(0, 1);
       
@@ -1382,6 +1385,7 @@ plot(density(posterior_pars$beta_bush$beta_bush), main = '',
      xlab = expression(beta['Native vegetation']))
 abline(v = beta_bush, lwd = 2, col = 'red')
 
+mod_gen_sim$save_object('mod_gen4.rds')
 
 #======= Effect native vegetation ==============
 
@@ -1401,7 +1405,7 @@ cat(file = 'generative_simulation.stan',
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
@@ -1674,5 +1678,17 @@ plot(density(posterior_pars$beta_NV$beta_NV), main = '',
      xlab = expression(beta['Native vegetation']))
 abline(v = beta_nativeV, lwd = 2, col = 'red')
 
+mod_gen_sim$save_object('mod_gen5.rds')
+
 # estimated correctly 
+
+par(mfrow = c(1, 2))
+plot(density(as.vector(mod_gen_sim$draws('rho', format = 'matrix'))), 
+     main = '', xlab = expression(rho))
+abline(v = rho, lwd = 2, col = 'red')
+
+plot(density(as.vector(mod_gen_sim$draws('eta', format = 'matrix'))), 
+     main = '', xlab = expression(eta))
+abline(v = eta, lwd = 2, col = 'red')
+
 
