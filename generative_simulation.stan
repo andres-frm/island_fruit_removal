@@ -13,7 +13,7 @@
                           for (i in 1:(N-1)) {
                             K[i, i] = eta + delta;
                             for (j in (i+1):N) {
-                              K[i, j] = square(eta) * exp(-rho * square(x[i, j]));
+                              K[i, j] = eta * exp(-rho * square(x[i, j]));
                               K[j, i] = K[i, j];
                             }
                           }
