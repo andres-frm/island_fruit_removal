@@ -216,6 +216,8 @@ mod_latitude_tot <-
     seed = 23061993
   )
 
+mod_latitude_tot$save_object('mod_latitude_tot.rds')
+
 sum_latitude_tot <- mod_latitude_tot$summary()
 mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
 ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
@@ -301,6 +303,8 @@ mod_latitude_disp <-
     seed = 23061993
   )
 
+mod_latitude_disp$save_object('mod_latitude_disp.rds')
+
 sum_latitude_disp <- mod_latitude_disp$summary()
 mod_diagnostics(mod_latitude_disp, sum_latitude_disp)
 ppcheck_latitude_disp <- mod_latitude_disp$draws('ppcheck', format = 'matrix')
@@ -384,6 +388,8 @@ mod_latitude_pred <-
     thin = 3, 
     seed = 23061993
   )
+
+mod_latitude_pred$save_object('mod_latitude_pred.rds')
 
 sum_latitude_pred <- mod_latitude_pred$summary()
 mod_diagnostics(mod_latitude_pred, sum_latitude_pred)
@@ -618,6 +624,8 @@ mod_isolation_tot <-
     seed = 23061993
   )
 
+mod_isolation_tot$save_object('mod_isolation_tot.rds')
+
 sum_isolation_tot <- mod_isolation_tot$summary()
 mod_diagnostics(mod_isolation_tot, sum_isolation_tot)
 ppcheck_isolation_tot <- mod_isolation_tot$draws('ppcheck', format = 'matrix')
@@ -703,6 +711,8 @@ mod_isolation_disp <-
     seed = 23061993
   )
 
+mod_isolation_disp$save_object('mod_isolation_disp.rds')
+
 sum_isolation_disp <- mod_isolation_disp$summary()
 mod_diagnostics(mod_isolation_disp, sum_isolation_disp)
 ppcheck_isolation_disp <- mod_isolation_disp$draws('ppcheck', format = 'matrix')
@@ -786,6 +796,8 @@ mod_isolation_pred <-
     thin = 3, 
     seed = 23061993
   )
+
+mod_isolation_pred$save_object('mod_isolation_pred.rds')
 
 sum_isolation_pred <- mod_isolation_pred$summary()
 mod_diagnostics(mod_isolation_pred, sum_isolation_pred)
@@ -935,6 +947,8 @@ mod_size_tot <-
     seed = 23061993
   )
 
+mod_size_tot$save_object('mod_size_tot.rds')
+
 sum_size_tot <- mod_size_tot$summary()
 mod_diagnostics(mod_size_tot, sum_size_tot)
 ppcheck_size_tot <- mod_size_tot$draws('ppcheck', format = 'matrix')
@@ -1020,6 +1034,8 @@ mod_size_disp <-
     seed = 23061993
   )
 
+mod_size_disp$save_object('mod_size_disp.rds')
+
 sum_size_disp <- mod_size_disp$summary()
 mod_diagnostics(mod_size_disp, sum_size_disp)
 ppcheck_size_disp <- mod_size_disp$draws('ppcheck', format = 'matrix')
@@ -1103,6 +1119,8 @@ mod_size_pred <-
     thin = 3, 
     seed = 23061993
   )
+
+mod_size_pred$save_object('mod_size_pred.rds')
 
 sum_size_pred <- mod_size_pred$summary()
 mod_diagnostics(mod_size_pred, sum_size_pred)
@@ -1255,6 +1273,10 @@ mod_altitude_tot <-
     thin = 3, 
     seed = 23061993
   )
+
+mod_altitude_tot$save_object('mod_altitude_tot.rds')
+mod_altitude_disp$save_object('mod_altitude_dip.rds')
+mod_altitude_pred$save_object('mod_altitude_pred.rds')
 
 sum_altitude_tot <- mod_altitude_tot$summary()
 mod_diagnostics(mod_altitude_tot, sum_altitude_tot)
@@ -1577,6 +1599,10 @@ mod_footprint_tot <-
     seed = 23061993
   )
 
+mod_footprint_tot$save_object('mod_footprint_tot.rds')
+mod_footprint_disp$save_object('mod_footprint_dip.rds')
+mod_footprint_pred$save_object('mod_footprint_pred.rds')
+
 sum_footprint_tot <- mod_footprint_tot$summary()
 mod_diagnostics(mod_footprint_tot, sum_footprint_tot)
 ppcheck_footprint_tot <- mod_footprint_tot$draws('ppcheck', format = 'matrix')
@@ -1875,6 +1901,10 @@ mod_nativeV_tot <-
     seed = 23061993
   )
 
+mod_nativeV_tot$save_object('mod_nativeV_tot.rds')
+mod_nativeV_disp$save_object('mod_nativeV_dip.rds')
+mod_nativeV_pred$save_object('mod_nativeV_pred.rds')
+
 sum_nativeV_tot <- mod_nativeV_tot$summary()
 mod_diagnostics(mod_nativeV_tot, sum_nativeV_tot)
 ppcheck_nativeV_tot <- mod_nativeV_tot$draws('ppcheck', format = 'matrix')
@@ -2172,6 +2202,10 @@ mod_bush_tot <-
     thin = 3, 
     seed = 23061993
   )
+
+mod_bush_tot$save_object('mod_bush_tot.rds')
+mod_bush_disp$save_object('mod_bush_dip.rds')
+mod_bush_pred$save_object('mod_bush_pred.rds')
 
 sum_bush_tot <- mod_bush_tot$summary()
 mod_diagnostics(mod_bush_tot, sum_bush_tot)
