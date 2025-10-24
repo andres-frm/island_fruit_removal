@@ -104,12 +104,12 @@ functions{
       vector[N_type_island] TI; 
       vector[N_realm] p_realm;
       vector[N_plant_invasive_rank] inv_rank;
-      //real beta_lat; // main effect
+      //real beta_lat; 
       // real beta_H_pop;
       real beta_H_foot;
       // real beta_I_mainland;
       //real beta_I_size;
-      // real beta_I_alt;
+      real beta_I_alt;
       real beta_I_isolation;
       real beta_temp;
       real beta_NV;
@@ -209,7 +209,7 @@ functions{
       beta_H_foot ~ normal(0, 1);
       //beta_I_mainland ~ normal(0, 1);
       // beta_I_size ~ normal(0, 1);
-      // beta_I_alt ~ normal(0, 1);
+      beta_I_alt ~ normal(0, 1);
       beta_I_isolation ~ normal(0, 1);
       beta_temp ~ normal(0, 1);
       beta_NV ~ normal(0, 1);
@@ -253,7 +253,7 @@ functions{
                                beta_H_foot * human_footprint +
                                //beta_I_mainland * +
                                // beta_I_size * island_size +
-                               // beta_I_alt * altitude_m +
+                               beta_I_alt * altitude_m +
                                beta_I_isolation * isolation +
                                beta_temp * temperature +
                                beta_NV * native_vegetation + // main effect
@@ -280,7 +280,7 @@ functions{
                                beta_H_foot * human_footprint +
                                //beta_I_mainland * +
                                // beta_I_size * island_size +
-                               // beta_I_alt * altitude_m +
+                               beta_I_alt * altitude_m +
                                beta_I_isolation * isolation +
                                beta_temp * temperature +
                                beta_NV * native_vegetation + // main effect
