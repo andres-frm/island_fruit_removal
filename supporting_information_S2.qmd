@@ -1,0 +1,274 @@
+---
+title: "Measuring the macroecological and local effects on plant-animal interaction using artificial fruits"
+subtitle: 'Authors: '
+author: "Supporting Information S2. Journal XXX"
+format:
+  pdf: 
+    include-in-header:
+      text: |
+        \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
+        \renewcommand{\thesubsubsection}{S\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+        \renewcommand{\thefigure}{S\arabic{figure}}
+        \renewcommand{\thetable}{S\arabic{table}}
+    toc: true
+    toc-depth: 10
+    number-sections: true
+    colorlinks: true
+    code-line-numbers: false
+    code-font-size: small
+number-sections: true
+number-depth: 100
+date-format: full 
+date-modified: now
+code-fold: false
+code-overflow: scroll
+code-line-numbers: true
+code-copy: true
+---
+
+# S1. Introduction
+
+This document holds data wrangling operations for fixing minor errors of the raw data set, calculating matrix od distances among islands, coding indexes of categorical variables and not available observations (i.e., `NA`), and formatting the entire data set to be used with the `cmdstanr` `R` package.
+
+# S2. Loading packages
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+sapply(c('readxl', 'magrittr', 'dplyr', 'ggplot2', 
+         'tidyr', 'tibble', 'forcats', 'lubridate', 
+         'maps', 'mapdata', 'geosphere'), 
+       library, character.only = T)
+```
+
+# S3. Loading raw data
+
+```{r}
+
+d <- read_xlsx('ilhas2025.xlsx', sheet = 1, col_names = T, na = 'NA')
+
+d$country2 <- d$country
+
+# correcting labels
+d$country2[which(d$country2 == 'US Virgin Islands')] <- 'USA'
+
+
+# Percentage of NA observations for each variable
+apply(d, 2, function(x) mean(is.na(x)) * 100)
+```
+
+# S4. Sampled islands 
+
+The following code uses the islands' coordinates to plot the worldwide distribution of the sampled localities.
+
+```{r}
+coords_islands <- unique(d[, c("island", "long", 'lat', "realm", 
+                               "ecoregion", "biome", "island_type", 
+                               "country2")])
+
+
+coords_islands <- lapply(split(coords_islands, 
+                               coords_islands$island), function(x) x[1, ])
+
+coords_islands <- do.call('rbind', coords_islands)
+
+coords_islands$realm <- as.factor(coords_islands$realm)
+coords_islands$real_code <- as.numeric(coords_islands$realm)
+
+```
+
+```{r, fig.cap='Spatial distribution of sampled islands (i.e., colored circles). Colors indicate the biogeographical realm'}
+#jpeg('map.jpeg', width = 20, height = 20, units = 'cm', res = 500)
+par(mar = c(1, 1, 1, 1))
+map("world", col="gray90", fill=TRUE, bg="white", border="gray50")
+coords_islands %$% points(long, lat, col = coords_islands$real_code)
+legend(x = -170, y = 0, legend = levels(coords_islands$realm), 
+       lty = 1, col = 1:length(levels(coords_islands$realm)), 
+       cex = 0.5)
+#dev.off()
+```
+
+
+# S5. Matriz of distances
+
+Code for generating a simetric matriz of distance (km) between sampled islands. 
+
+```{r}
+# shortest distance over the Earth's surface (great-circle distance).
+islands_dist <- distm(coords_islands[, c("long", 'lat')], fun = distHaversine)
+dimnames(islands_dist) <- list(coords_islands$island, 
+                               coords_islands$island)
+
+islands_dist <- islands_dist/1e3
+
+# first five islands
+islands_dist[1:5, 1:5]
+```
+
+
+# S6. Data cleaning
+
+In this section we conducted operations for correcting typo error in some variables, selecting the columns that will be used in final analysis, and aggregation of fruits consumed per plant. 
+
+```{r}
+d$fruit_fate[which(d$fruit_fate == 'eaten')] <- 'Eaten'
+
+d$plant_ID <- d %$% paste0(grid, '--', bush_ID)
+
+# variables that will be used 
+d <- 
+  d[, c("country2", "island", "correct_coord", 'lat',
+      'long', "realm", "ecoregion", "biome", "island_type", 
+      "grid", "plant_ID", "fruit_ID", "fate_bin", 
+      "frugivore", "season", "plant_invasive_rank", "human_pop", 
+      "human_footprint", "distance_mainland", "island_size", "isolation", 
+      "altitude_m", "temperature", "bush_cover", "native_vegetation")]
+
+d[] <- lapply(d, function(x) if (is.character(x)) as.factor(x) else x)
+
+# separating per plant
+d <- split(d, d$plant_ID)
+```
+
+All plants should have 15 rows (i.e., fruits), so the following condition should be zero:
+
+```{r}
+sum(unlist(lapply(d, nrow), use.names = F) != 15)
+```
+
+This means that there are four plants that have either higher or lower number of fruits:
+
+```{r}
+names(d[which(unlist(lapply(d, nrow), use.names = F) != 15)])
+```
+
+Some fruits were assigned to different fruits. The following code correct it
+
+```{r}
+d$`FN01--2` <- 
+  rbind(d$`FN01--2`, d$`FN01--4`[1, ])
+
+d$`FN01--2`$plant_ID[15] <- 'FN01--2'
+d$`FN01--2`
+d$`FN01--4` <- d$`FN01--4`[-1, ]
+
+
+d$`FN02--2` <- 
+  rbind(d$`FN02--2`, d$`FN02--4`[1, ])
+d$`FN02--2`$plant_ID[15] <- 'FN02--2'
+d$`FN02--2`
+d$`FN02--4` <- d$`FN02--4`[-1, ]
+
+```
+
+Now the data meets the condition of 15 fruits per plant
+
+```{r}
+sum(unlist(lapply(d, nrow), use.names = F) != 15)
+```
+
+Once the data is corrected, we aggregate the fruits per plant
+
+```{r, warning=FALSE}
+d_total <- 
+  lapply(d, FUN = 
+         function(x) {
+           
+           alt <- median(x$altitude_m)
+           bc <- median(x$bush_cover)
+           
+           remotion <- sum(x$fate_bin) # total removal
+           
+           v <- 
+             sapply(levels(x$frugivore), FUN = 
+                    function(i) {
+                      # removal per group
+                      sum(x$frugivore == i)
+                    })
+           v1 <- as_tibble(matrix(v, nrow = 1))
+           colnames(v1) <- names(v)
+           
+           # removing unnecessary grouping factors
+           indx <- c(grep('fate_bin', colnames(x)), 
+                     grep('frugivore', colnames(x)), 
+                     grep('fruit_ID', colnames(x)))
+           x$lat <- x$lat[1]
+           x$long <- x$long[1]
+           x$altitude_m <- alt
+           x$bush_cover <- bc
+           x <- unique(x[, -c(indx)])
+           x$total <- 15 # total available fruits
+           # adding total and per-group fruit removal
+           x$total_remotion <- remotion 
+           as_tibble(cbind(x, v1))
+         })
+
+d_total[unlist(lapply(d_total, function(x) nrow(x) > 1), use.names = F)]
+
+d_total <- do.call('rbind', d_total)
+
+```
+
+Index and labels for categorical variables 
+
+```{r}
+# fixing island label 
+d_total$island_type[which(d_total$island == 'Sicily' &
+                            d_total$island_type == 'Coraline')] <- 'Continental'
+
+codes1 <- d_total[, c("country2", "island", "grid", "plant_ID", 
+                     "realm", "ecoregion", "biome", "island_type")]
+
+codes <- codes1
+
+codes[] <- lapply(codes1, function(x) as.numeric(as.factor(x)))
+
+codes_labes <- 
+  list(country = 
+       unique(tibble(country = codes1$country2, 
+                     code = codes$country2)), 
+     island = 
+       unique(tibble(island = codes1$island, 
+                     code = codes$island)), 
+     grid = unique(tibble(island = codes1$grid, 
+                          code = codes$grid)), 
+     real = unique(tibble(island = codes1$realm, 
+                          code = codes$realm)), 
+     ecoregion = unique(tibble(island = codes1$ecoregion, 
+                               code = codes$ecoregion)), 
+     biome = unique(tibble(island = codes1$biome, 
+                           code = codes$biome)), 
+     island_type = unique(tibble(island = codes1$island_type, 
+                                 code = codes$island_type)))
+```
+
+
+Finally, we save all object on a `.rds` file that was used on the generative simulation and formal analysis.
+
+```{r, eval=FALSE}
+# ====== Data structure for generative simulation ======
+
+saveRDS(list(data_structure = codes,
+             labels = codes1,
+             dist_mat = islands_dist), 'data_structure_simulation.rds')
+
+# ======= Data for models ========
+
+saveRDS(list(codes = codes_labes,
+             dist_islands = islands_dist, 
+             data = d_total), 'data.rds')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
