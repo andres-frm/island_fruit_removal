@@ -2232,10 +2232,6 @@ mod_bush_tot <-
     seed = 23061993
   )
 
-mod_bush_tot$save_object('mod_bush_tot.rds')
-mod_bush_disp$save_object('mod_bush_dip.rds')
-mod_bush_pred$save_object('mod_bush_pred.rds')
-
 sum_bush_tot <- mod_bush_tot$summary()
 mod_diagnostics(mod_bush_tot, sum_bush_tot)
 ppcheck_bush_tot <- mod_bush_tot$draws('ppcheck', format = 'matrix')
@@ -2472,7 +2468,9 @@ names(post_bush_pred) <- c('alpha',
                               'p_plant', 'p_realm', 
                               'p_ecoR', 'p_biome')
 
-
+mod_bush_tot$save_object('mod_bush_tot.rds')
+mod_bush_disp$save_object('mod_bush_dip.rds')
+mod_bush_pred$save_object('mod_bush_pred.rds')
 
 # ======= Plots =====
 # 
@@ -2889,12 +2887,33 @@ ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units =
 rbind(slope_pars('post_latitude', 'beta_lat') |> 
         mutate(predictor = 'Latitude'), 
       slope_pars('post_isolation', 'beta_I_isolation') |> 
-        mutate(predictor = 'Isolation'))
+        mutate(predictor = 'Island\nisolation'), 
+      slope_pars('post_size', 'beta_I_size') |> 
+        mutate(predictor = 'Island\nsize'), 
+      slope_pars('post_altitude', 'beta_I_alt') |> 
+        mutate(predictor = 'Island\naltitude'), 
+      slope_pars('post_footprint', 'beta_H_foot') |> 
+        mutate(predictor = 'Human\nfootprint'), 
+      slope_pars('post_nativeV', 'beta_NV') |> 
+        mutate(predictor = 'Native\nvegetation'), 
+      slope_pars('post_bush', 'beta_bush') |> 
+        mutate(predictor = 'Bush\ncover'))
 
-rbind(slope_pars('post_latitude', 'beta_lat') |> 
+plot_beta_continuous <- 
+  rbind(slope_pars('post_latitude', 'beta_lat') |> 
         mutate(predictor = 'Latitude'), 
       slope_pars('post_isolation', 'beta_I_isolation') |> 
-        mutate(predictor = 'Isolation')) |> 
+        mutate(predictor = 'Island\nisolation'), 
+      slope_pars('post_size', 'beta_I_size') |> 
+        mutate(predictor = 'Island\nsize'), 
+      slope_pars('post_altitude', 'beta_I_alt') |> 
+        mutate(predictor = 'Island\naltitude'), 
+      slope_pars('post_footprint', 'beta_H_foot') |> 
+        mutate(predictor = 'Human\nfootprint'), 
+      slope_pars('post_nativeV', 'beta_NV') |> 
+        mutate(predictor = 'Native\nvegetation'), 
+      slope_pars('post_bush', 'beta_bush') |> 
+        mutate(predictor = 'Bush\ncover')) |> 
   ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
              color = `Fruit consumption`)) +
   geom_hline(yintercept = 0, linetype = 3) +
@@ -2902,7 +2921,132 @@ rbind(slope_pars('post_latitude', 'beta_lat') |>
                 linewidth = 1.5, alpha = 0.4) +
   geom_point(position = position_dodge(width = 0.4), size = 2) +
   scale_color_manual(values = c('#D92525', '#F2C230', '#7A577A')) +
-  labs(y = 'P(fruit consumption)', x = 'Effects') +
+  labs(y = expression(beta), x = 'Predictors') +
+  theme_classic() +
+  coord_flip() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = c(0.8, 0.2),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'averaging',
+                                 n = 100)
+
+# isolation
+
+names(post_isolation_tot)[2] <- 'beta'
+
+est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
+                                  x_bar = dat$isolation,
+                                  slope = 'beta_I_isolation',
+                                  type = 'averaging',
+                                  n = 100)
+
+
+
+est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'averaging',
+                                   n = 100)
+
+# size of island
+
+est_size_pred <- cond_effects(posterior = post_size_pred,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'averaging',
+                              n = 100)
+
+# landscape ============
+
+# altitude
+
+slope_pars('post_altitude', 'beta_I_alt')
+
+
+est_alt_pred <- cond_effects(posterior = post_altitude_pred,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+
+est_alt_disp <- cond_effects(posterior = post_altitude_disp,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+# human footprint
+# *****no effects 
+
+
+
+
+# native vegetation
+# ****no effect
+
+
+
+
+# bush cover
+
+slope_pars('post_bush', 'beta_bush')
+
+bush_merge <- mod_bush_pred$draws('bush_merge', format = 'matrix')
+
+bush_merge <- apply(bush_merge, 2, median)
+
+est_bush_pred <- cond_effects(posterior = post_bush_pred,
+                             x_bar = bush_merge,
+                             slope = 'beta_bush',
+                             type = 'averaging',
+                             n = 100)
+
+plot_scatter_plot <- 
+  rbind(est_latitude_tot |> 
+        mutate(var = 'Latitude', 
+               type = 'Frugivory'), 
+      est_isolation_tot |> 
+        mutate(var = 'Island isolation', 
+               type = 'Frugivory'), 
+      est_isolation_pred |> 
+        mutate(var = 'Island isolation', 
+               type = 'Predation'), 
+      est_size_pred |> 
+        mutate(var = 'Island size', 
+               type = 'Predation'), 
+      est_alt_pred |> 
+        mutate(var = 'Island altitude', 
+               type = 'Predation'), 
+      est_alt_disp |> 
+        mutate(var = 'Island altitude', 
+               type = 'Dispersion'), 
+      est_bush_pred |> 
+        mutate(var = 'Bush cover', 
+               type = 'Dispersion')) |> 
+  ggplot(aes(x, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c('#F2C230', '#D92525', '#7A577A')) +
+  scale_fill_manual(values = c('#F2C230', '#D92525', '#7A577A')) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'z-scores') +
+  facet_wrap(~var, scales = 'free', ncol = 1) +
   theme_classic() +
   theme(
     panel.grid.major = element_blank(),
@@ -2913,313 +3057,13 @@ rbind(slope_pars('post_latitude', 'beta_lat') |>
     legend.title = element_blank(),
     legend.text = element_text(size = 7),
     legend.background = element_blank(),
-    #legend.position = 'none',
+    legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9),
-    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+    text = element_text(family = 'Times New Roman', size = 9)
   )
 
-est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'averaging',
-                                 n = 100)
+plot_grid(plot_beta_continuous, 
+          plot_scatter_plot, ncol = 2)
 
-rbind(est_latitude_tot)
-
-plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-
-
-# isolation
-
-rbind(pivot_longer(post_isolation_tot$beta, 'beta_I_isolation') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Island isolation'), 
-      pivot_longer(post_isolation_disp$beta, 'beta_I_isolation') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Island isolation'), 
-      pivot_longer(post_isolation_pred$beta, 'beta_I_isolation') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Island isolation')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  labs()
-
-
-
-
-est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
-                                  x_bar = dat$isolation,
-                                  slope = 'beta_I_isolation',
-                                  type = 'random',
-                                  n = 100)
-
-plot(dat$isolation, dat$total_remotion, cex = 0.1)
-est_isolation_tot %$% lines(x, y)
-est_isolation_tot %$% lines(x, li, lty = 3)
-est_isolation_tot %$% lines(x, ls, lty = 3)
-
-est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
-                                  x_bar = dat$isolation,
-                                  slope = 'beta_I_isolation',
-                                  type = 'averaging',
-                                  n = 100)
-plot(NULL, ylim = c(0, 1), 
-     xlim = quantile(dat$isolation, c(0, 1)))
-est_isolation_tot %$% lines(x, y)
-est_isolation_tot %$% lines(x, li, lty = 3)
-est_isolation_tot %$% lines(x, ls, lty = 3)
-
-
-est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
-                                   x_bar = dat$isolation,
-                                   slope = 'beta_I_isolation',
-                                   type = 'random',
-                                   n = 100)
-
-plot(dat$isolation, dat$predation, cex = 0.1)
-est_isolation_pred %$% lines(x, y)
-est_isolation_pred %$% lines(x, li, lty = 3)
-est_isolation_pred %$% lines(x, ls, lty = 3)
-
-est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
-                                   x_bar = dat$isolation,
-                                   slope = 'beta_I_isolation',
-                                   type = 'averaging',
-                                   n = 100)
-plot(NULL, ylim = c(0, 1), 
-     xlim = quantile(dat$isolation, c(0, 1)))
-est_isolation_pred %$% lines(x, y)
-est_isolation_pred %$% lines(x, li, lty = 3)
-est_isolation_pred %$% lines(x, ls, lty = 3)
-
-
-
-# size of island
-
-rbind(pivot_longer(post_size_tot$beta, 'beta_I_size') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Island size'), 
-      pivot_longer(post_size_disp$beta, 'beta_I_size') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Island size'), 
-      pivot_longer(post_size_pred$beta, 'beta_I_size') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Island size')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3)
-
-slope_pars('post_size', 'beta_I_size')
-
-est_size_pred <- cond_effects(posterior = post_size_pred,
-                              x_bar = dat$island_size,
-                              slope = 'beta_I_size',
-                              type = 'random',
-                              n = 100)
-
-plot(dat$island_size, dat$predation, cex = 0.1)
-est_size_pred %$% lines(x, y)
-est_size_pred %$% lines(x, li, lty = 3)
-est_size_pred %$% lines(x, ls, lty = 3)
-
-
-est_size_pred <- cond_effects(posterior = post_size_pred,
-                              x_bar = dat$island_size,
-                              slope = 'beta_I_size',
-                              type = 'averaging',
-                              n = 100)
-
-plot(NULL, xlim = quantile(dat$island_size, 
-                           c(0, 1)), ylim = c(0, 1))
-est_size_pred %$% lines(x, y)
-est_size_pred %$% lines(x, li, lty = 3)
-est_size_pred %$% lines(x, ls, lty = 3)
-
-
-# landscape ============
-
-# altitude
-
-rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Island altitude'), 
-      pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Island altitude'), 
-      pivot_longer(post_altitude_pred$beta, 'beta_I_alt') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Island altitude')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  labs()
-
-
-slope_pars('post_altitude', 'beta_I_alt')
-
-est_alt_pred <- cond_effects(posterior = post_altitude_pred,
-                             x_bar = dat$altitude_m,
-                             slope = 'beta_I_alt',
-                             type = 'random',
-                             n = 100)
-
-plot(dat$altitude_m, dat$predation, cex = 0.1)
-est_alt_pred %$% lines(x, y)
-est_alt_pred %$% lines(x, li, lty = 3)
-est_alt_pred %$% lines(x, ls, lty = 3)
-
-
-est_alt_pred <- cond_effects(posterior = post_altitude_pred,
-                             x_bar = dat$altitude_m,
-                             slope = 'beta_I_alt',
-                             type = 'averaging',
-                             n = 100)
-
-plot(NULL, xlim = quantile(dat$altitude_m, 
-                           c(0, 1)), ylim = c(0, 1))
-est_size_pred %$% lines(x, y)
-est_size_pred %$% lines(x, li, lty = 3)
-est_size_pred %$% lines(x, ls, lty = 3)
-
-
-
-est_alt_disp <- cond_effects(posterior = post_altitude_disp,
-                             x_bar = dat$altitude_m,
-                             slope = 'beta_I_alt',
-                             type = 'random',
-                             n = 100)
-
-plot(dat$altitude_m, dat$dispersion, cex = 0.1)
-est_alt_disp %$% lines(x, y)
-est_alt_disp %$% lines(x, li, lty = 3)
-est_alt_disp %$% lines(x, ls, lty = 3)
-
-
-est_alt_disp <- cond_effects(posterior = post_altitude_disp,
-                             x_bar = dat$altitude_m,
-                             slope = 'beta_I_alt',
-                             type = 'averaging',
-                             n = 100)
-
-plot(NULL, xlim = quantile(dat$altitude_m, 
-                           c(0, 1)), ylim = c(0, 0.4))
-est_alt_disp %$% lines(x, y)
-est_alt_disp %$% lines(x, li, lty = 3)
-est_alt_disp %$% lines(x, ls, lty = 3)
-
-# human footprint
-
-rbind(pivot_longer(post_footprint_tot$beta, 'beta_H_foot') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Human footprint'), 
-      pivot_longer(post_footprint_disp$beta, 'beta_H_foot') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Human footprint'), 
-      pivot_longer(post_footprint_pred$beta, 'beta_H_foot') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Human footprint')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  labs()
-
-slope_pars('post_footprint', 'beta_H_foot')
-
-
-# native vegetation
-rbind(pivot_longer(post_nativeV_tot$beta, 'beta_NV') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Native cover'), 
-      pivot_longer(post_nativeV_disp$beta, 'beta_NV') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Native cover'), 
-      pivot_longer(post_nativeV_pred$beta, 'beta_NV') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Native cover')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  labs()
-
-slope_pars('post_nativeV', 'beta_NV')
-
-
-# bush cover
-rbind(pivot_longer(post_bush_tot$beta, 'beta_bush') |> 
-        mutate(type = 'Frugivory', 
-               effect = 'Bush cover'), 
-      pivot_longer(post_bush_disp$beta, 'beta_bush') |> 
-        mutate(type = 'Seed dispersion', 
-               effect = 'Bush cover'), 
-      pivot_longer(post_bush_pred$beta, 'beta_bush') |> 
-        mutate(type = 'Seed predation', 
-               effect = 'Bush cover')) |> 
-  group_by(type) |> 
-  transmute(mu = median(value), 
-            li = quantile(value, 0.025), 
-            ls = quantile(value, 0.975), 
-            x = 'Slope', 
-            effect = effect) |> 
-  unique() |> 
-  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
-  geom_point() +
-  geom_errorbar(width = 0) +
-  facet_wrap(~ effect) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  labs()
-
-slope_pars('post_bush', 'beta_bush')
-
+ggsave('effects_plot.jpg', width = 10, height = 20, units = 'cm', dpi = 1e3)
