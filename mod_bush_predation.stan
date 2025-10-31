@@ -257,7 +257,7 @@ functions{
                                // beta_I_isolation * isolation +
                                beta_temp * temperature +
                                beta_NV * native_vegetation + 
-                               beta_bush * bush_cover + // main effect
+                               beta_bush * bush_merge + // main effect
                                // inv_rank[plant_invasive_rank] +
                                TI[island_type] +
                                p_island[island] +
