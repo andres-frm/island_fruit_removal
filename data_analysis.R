@@ -163,24 +163,26 @@ cond_effects <- function(posterior,
                          })
                   
                   if (type == 'averaging') {
-                    tibble(x = x, 
+                    tibble(x = x,
                            y = median(est),
-                           li = quantile(est, 0.025), 
+                           li = quantile(est, 0.025),
                            ls = quantile(est, 0.975))
+
                   } else if (type == 'random') {
-                    
+
                     set.seed(23061993)
                     est <- sample(est, 100, replace = F)
                     pred <- rbinom(length(est), 15, est)
-                    tibble(x = x, 
-                           y = median(pred), 
+                    tibble(x = x,
+                           y = median(pred),
                            li = quantile(pred, 0.025),
                            ls = quantile(pred, 0.975),
-                           indx = i, 
+                           indx = i,
                            type = 'Predicted')
+
                   } else {
-                    
-                    tibble(x = x, 
+
+                    tibble(x = x,
                            y = median(est),
                            indx = i)
                   }
@@ -190,6 +192,38 @@ cond_effects <- function(posterior,
   do.call('rbind', y)
   
 }
+
+
+
+slope_pars <- 
+  function(posterior, 
+           slope) {
+    
+    env <- ls(globalenv())
+
+    post <- env[grep(posterior, env)]
+    
+    post <-
+      lapply(post, FUN =
+             function(x) {
+               p <- get(x)
+               beta <- p$beta[[slope]]
+
+               tibble(mu = median(beta),
+                      li = quantile(beta, 0.025),
+                      ls = quantile(beta, 0.975),
+                      `P(beta > 0)` = mean(beta > 0),
+                      `P(beta < 0)` = mean(beta < 0),
+                      `Fruit consumption` = x)
+             })
+
+    post <- do.call('rbind', post)
+    post$`Fruit consumption` <- 
+      c('Seed dispersion', 'Seed predation', 'Frugivory')
+    post
+  }
+
+
 
 
 #########
@@ -464,7 +498,7 @@ names(post_latitude_pred) <- c('alpha',
 # 
 # ============= Slops ===========
 
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
                                  x_bar = dat$lat,
                                  slope = 'beta_lat',
                                  type = 'random',
@@ -475,12 +509,7 @@ est_latitude_tot %$% lines(x, y)
 est_latitude_tot %$% lines(x, li, lty = 3)
 est_latitude_tot %$% lines(x, ls, lty = 3)
 
-est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
+est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
                                  x_bar = dat$lat,
                                  slope = 'beta_lat',
                                  type = 'averaging',
@@ -2481,7 +2510,716 @@ mean(post_bush_pred$beta$beta_bush < 0)
 
 
 
+# ====== *Final plots and estimations* ====
+
+# categorical effects =================
+
+# Type of island
+plot_disp_pred_islands <- 
+  rbind(full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Dispersion'), 
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#F2C230', '#7A577A')) +
+  scale_x_discrete(labels = c('Continental', 'Coralline', 'Volcanic')) +
+  labs(y = ' ', x = 'Type of island') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.24, 0.8),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+plot_frugivory_islands <- 
+  full_join(TI_tot, codes$island_type, 'code') |> 
+  mutate(type = 'Frugivory') |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.2), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.2), size = 2) +
+  scale_color_manual(values = c('#D92525')) +
+  labs(y = 'P(fruit consumption)', x = 'Type of island') +
+  scale_x_discrete(labels = c('Continental', 'Coralline', 'Volcanic')) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.24, 0.8),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+
+plot_grid(plot_grid(NULL, 
+                    plot_frugivory_islands, 
+                    plot_disp_pred_islands, 
+                    NULL,
+                    nrow = 1,  
+                    rel_widths = c(0.2, 0.8, 0.8, 0.2), 
+                    labels = c('', '(a)', '(b)', ''), 
+                    label_size = 9, 
+                    label_fontfamily = 'Times New Roman', 
+                    label_fontface = 'plain', 
+                    label_x = 0.16, 
+                    label_y = 0.99), 
+          plot_grid(plot_frugivory_realms, 
+                    plot_disp_pred_realms, 
+                    nrow = 1, 
+                    labels = c('(c)', '(d)'), 
+                    label_size = 9, 
+                    label_fontfamily = 'Times New Roman', 
+                    label_fontface = 'plain', 
+                    label_x = c(0.13, 0.145), 
+                    label_y = 0.99),
+          ncol = 1)
+
+ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units = 'cm')
+
+
+# estimations
+
+# probability among types of islands
+rbind(full_join(TI_tot, codes$island_type, 'code') |> 
+        mutate(type = 'Frugivory'), 
+      full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Dispersion'), 
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() 
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(TI_tot, TI_disp, TI_pred)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(1:3, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$island_type$island
+                           d
+                         })
+          
+           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
+           
+           d <- 
+             lapply(d, FUN = 
+                      function(jj) {
+                        
+                        prob <-
+                          lapply(1:3, FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply(1:3, FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste(codes$island_type$island[i],
+                                                          codes$island_type$island[j],
+                                                          sep = ' > ')
+                                                  
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+                                                  
+                                                })
+                                     do.call('rbind', df)
+                                   })
+                        
+                        do.call('rbind', prob)
+                        
+                      })
+           
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+          
+           d <- do.call('rbind', d)
+           
+           d[d$probability != 0, ]
+         })
+
+
+# frugivory among realms
+
+# average probabilities 
+rbind(full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Frugivory'), 
+      full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'), 
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> print(n = 21)
+
+
+# contrast among realms 
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(realm_tot, realm_disp, realm_pred)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(codes$real$code, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$real$island
+                           d
+                         })
+           
+           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
+           
+           lapply(d, FUN = 
+                    function(z) {
+                      m <- 
+                      sapply(codes$real$code, FUN = 
+                               function(i) {
+                                 sapply(codes$real$code, FUN = 
+                                          function(j) {
+                                            mean(z[[i]] > z[[j]])
+                                          })
+                               })
+                      
+                      dimnames(m) <- list(codes$real$island, 
+                                          codes$real$island)
+                      m
+                    })
+         })
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(realm_tot, realm_disp, realm_pred)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(codes$real$code, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$real$island
+                           d
+                         })
+           
+           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
+           
+           d <-
+             lapply(d, FUN =
+                      function(jj) {
+
+                        prob <-
+                          lapply(codes$real$code, FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply(codes$real$code, FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste(codes$real$island[i],
+                                                          codes$real$island[j],
+                                                          sep = ' > ')
+
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+
+                                                })
+                                     do.call('rbind', df)
+                                   })
+
+                        do.call('rbind', prob)
+
+                      })
+
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+
+           d <- do.call('rbind', d)
+
+           d[d$probability != 0, ]
+           
+         })[[1]] |> print(n = 200) 
+
+plot_frugivory_realms <- 
+  full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Frugivory') |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#D92525')) +
+  labs(y = 'P(fruit consumption)', x = 'Biogeographic realm') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+
+
+plot_disp_pred_realms <- 
+  rbind(full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'), 
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.5), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  scale_color_manual(values = c('#F2C230', '#7A577A')) +
+  labs(y = ' ', x = 'Biogeographic realm') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+  
+
+plot_grid(plot_grid(NULL, 
+                    plot_frugivory_islands, 
+                    plot_disp_pred_islands, 
+                    NULL,
+                    nrow = 1,  
+                    rel_widths = c(0.2, 0.8, 0.8, 0.2), 
+                    labels = c('', '(a)', '(b)', ''), 
+                    label_size = 9, 
+                    label_fontfamily = 'Times New Roman', 
+                    label_fontface = 'plain', 
+                    label_x = 0.15, 
+                    label_y = 0.99), 
+          plot_grid(plot_frugivory_realms, 
+                    plot_disp_pred_realms, 
+                    nrow = 1, 
+                    labels = c('(c)', '(d)'), 
+                    label_size = 9, 
+                    label_fontfamily = 'Times New Roman', 
+                    label_fontface = 'plain', 
+                    label_x = c(0.12, 0.135), 
+                    label_y = 0.99),
+          ncol = 1)
+
+ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units = 'cm')
 
 
 
+# Continuous variabes ====================
+
+# latitude (mu and CI)
+
+rbind(slope_pars('post_latitude', 'beta_lat') |> 
+        mutate(predictor = 'Latitude'), 
+      slope_pars('post_isolation', 'beta_I_isolation') |> 
+        mutate(predictor = 'Isolation'))
+
+rbind(slope_pars('post_latitude', 'beta_lat') |> 
+        mutate(predictor = 'Latitude'), 
+      slope_pars('post_isolation', 'beta_I_isolation') |> 
+        mutate(predictor = 'Isolation')) |> 
+  ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
+             color = `Fruit consumption`)) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#D92525', '#F2C230', '#7A577A')) +
+  labs(y = 'P(fruit consumption)', x = 'Effects') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    #legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+
+est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'averaging',
+                                 n = 100)
+
+rbind(est_latitude_tot)
+
+plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
+est_latitude_tot %$% lines(x, y)
+est_latitude_tot %$% lines(x, li, lty = 3)
+est_latitude_tot %$% lines(x, ls, lty = 3)
+
+
+
+
+# isolation
+
+rbind(pivot_longer(post_isolation_tot$beta, 'beta_I_isolation') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Island isolation'), 
+      pivot_longer(post_isolation_disp$beta, 'beta_I_isolation') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Island isolation'), 
+      pivot_longer(post_isolation_pred$beta, 'beta_I_isolation') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Island isolation')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+
+
+
+est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
+                                  x_bar = dat$isolation,
+                                  slope = 'beta_I_isolation',
+                                  type = 'random',
+                                  n = 100)
+
+plot(dat$isolation, dat$total_remotion, cex = 0.1)
+est_isolation_tot %$% lines(x, y)
+est_isolation_tot %$% lines(x, li, lty = 3)
+est_isolation_tot %$% lines(x, ls, lty = 3)
+
+est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
+                                  x_bar = dat$isolation,
+                                  slope = 'beta_I_isolation',
+                                  type = 'averaging',
+                                  n = 100)
+plot(NULL, ylim = c(0, 1), 
+     xlim = quantile(dat$isolation, c(0, 1)))
+est_isolation_tot %$% lines(x, y)
+est_isolation_tot %$% lines(x, li, lty = 3)
+est_isolation_tot %$% lines(x, ls, lty = 3)
+
+
+est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'random',
+                                   n = 100)
+
+plot(dat$isolation, dat$predation, cex = 0.1)
+est_isolation_pred %$% lines(x, y)
+est_isolation_pred %$% lines(x, li, lty = 3)
+est_isolation_pred %$% lines(x, ls, lty = 3)
+
+est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'averaging',
+                                   n = 100)
+plot(NULL, ylim = c(0, 1), 
+     xlim = quantile(dat$isolation, c(0, 1)))
+est_isolation_pred %$% lines(x, y)
+est_isolation_pred %$% lines(x, li, lty = 3)
+est_isolation_pred %$% lines(x, ls, lty = 3)
+
+
+
+# size of island
+
+rbind(pivot_longer(post_size_tot$beta, 'beta_I_size') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Island size'), 
+      pivot_longer(post_size_disp$beta, 'beta_I_size') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Island size'), 
+      pivot_longer(post_size_pred$beta, 'beta_I_size') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Island size')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3)
+
+slope_pars('post_size', 'beta_I_size')
+
+est_size_pred <- cond_effects(posterior = post_size_pred,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'random',
+                              n = 100)
+
+plot(dat$island_size, dat$predation, cex = 0.1)
+est_size_pred %$% lines(x, y)
+est_size_pred %$% lines(x, li, lty = 3)
+est_size_pred %$% lines(x, ls, lty = 3)
+
+
+est_size_pred <- cond_effects(posterior = post_size_pred,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'averaging',
+                              n = 100)
+
+plot(NULL, xlim = quantile(dat$island_size, 
+                           c(0, 1)), ylim = c(0, 1))
+est_size_pred %$% lines(x, y)
+est_size_pred %$% lines(x, li, lty = 3)
+est_size_pred %$% lines(x, ls, lty = 3)
+
+
+# landscape ============
+
+# altitude
+
+rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Island altitude'), 
+      pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Island altitude'), 
+      pivot_longer(post_altitude_pred$beta, 'beta_I_alt') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Island altitude')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+
+slope_pars('post_altitude', 'beta_I_alt')
+
+est_alt_pred <- cond_effects(posterior = post_altitude_pred,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'random',
+                             n = 100)
+
+plot(dat$altitude_m, dat$predation, cex = 0.1)
+est_alt_pred %$% lines(x, y)
+est_alt_pred %$% lines(x, li, lty = 3)
+est_alt_pred %$% lines(x, ls, lty = 3)
+
+
+est_alt_pred <- cond_effects(posterior = post_altitude_pred,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+plot(NULL, xlim = quantile(dat$altitude_m, 
+                           c(0, 1)), ylim = c(0, 1))
+est_size_pred %$% lines(x, y)
+est_size_pred %$% lines(x, li, lty = 3)
+est_size_pred %$% lines(x, ls, lty = 3)
+
+
+
+est_alt_disp <- cond_effects(posterior = post_altitude_disp,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'random',
+                             n = 100)
+
+plot(dat$altitude_m, dat$dispersion, cex = 0.1)
+est_alt_disp %$% lines(x, y)
+est_alt_disp %$% lines(x, li, lty = 3)
+est_alt_disp %$% lines(x, ls, lty = 3)
+
+
+est_alt_disp <- cond_effects(posterior = post_altitude_disp,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+plot(NULL, xlim = quantile(dat$altitude_m, 
+                           c(0, 1)), ylim = c(0, 0.4))
+est_alt_disp %$% lines(x, y)
+est_alt_disp %$% lines(x, li, lty = 3)
+est_alt_disp %$% lines(x, ls, lty = 3)
+
+# human footprint
+
+rbind(pivot_longer(post_footprint_tot$beta, 'beta_H_foot') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Human footprint'), 
+      pivot_longer(post_footprint_disp$beta, 'beta_H_foot') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Human footprint'), 
+      pivot_longer(post_footprint_pred$beta, 'beta_H_foot') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Human footprint')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+slope_pars('post_footprint', 'beta_H_foot')
+
+
+# native vegetation
+rbind(pivot_longer(post_nativeV_tot$beta, 'beta_NV') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Native cover'), 
+      pivot_longer(post_nativeV_disp$beta, 'beta_NV') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Native cover'), 
+      pivot_longer(post_nativeV_pred$beta, 'beta_NV') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Native cover')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+slope_pars('post_nativeV', 'beta_NV')
+
+
+# bush cover
+rbind(pivot_longer(post_bush_tot$beta, 'beta_bush') |> 
+        mutate(type = 'Frugivory', 
+               effect = 'Bush cover'), 
+      pivot_longer(post_bush_disp$beta, 'beta_bush') |> 
+        mutate(type = 'Seed dispersion', 
+               effect = 'Bush cover'), 
+      pivot_longer(post_bush_pred$beta, 'beta_bush') |> 
+        mutate(type = 'Seed predation', 
+               effect = 'Bush cover')) |> 
+  group_by(type) |> 
+  transmute(mu = median(value), 
+            li = quantile(value, 0.025), 
+            ls = quantile(value, 0.975), 
+            x = 'Slope', 
+            effect = effect) |> 
+  unique() |> 
+  ggplot(aes(type, mu, ymin = li, ymax = ls)) +
+  geom_point() +
+  geom_errorbar(width = 0) +
+  facet_wrap(~ effect) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs()
+
+slope_pars('post_bush', 'beta_bush')
 
