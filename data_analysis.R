@@ -2649,9 +2649,11 @@ lapply(1, FUN =
                                                   p <- mean(jj[[i]] > jj[[j]])
                                                   dif <- jj[[i]] - jj[[j]]
                                                   contrast <-
-                                                    paste(codes$island_type$island[i],
-                                                          codes$island_type$island[j],
-                                                          sep = ' > ')
+                                                    paste0('P(', 
+                                                          codes$island_type$island[i],
+                                                          ' > ',
+                                                          codes$island_type$island[j], 
+                                                          ')')
                                                   
                                                   tibble(Comparison = contrast,
                                                          probability = p,
@@ -2725,6 +2727,7 @@ lapply(1, FUN =
                       
                       dimnames(m) <- list(codes$real$island, 
                                           codes$real$island)
+                      m[upper.tri(m)] <- NA
                       m
                     })
          })
@@ -2887,57 +2890,19 @@ ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units =
 rbind(slope_pars('post_latitude', 'beta_lat') |> 
         mutate(predictor = 'Latitude'), 
       slope_pars('post_isolation', 'beta_I_isolation') |> 
-        mutate(predictor = 'Island\nisolation'), 
+        mutate(predictor = 'Island isolation'), 
       slope_pars('post_size', 'beta_I_size') |> 
-        mutate(predictor = 'Island\nsize'), 
+        mutate(predictor = 'Island size'), 
       slope_pars('post_altitude', 'beta_I_alt') |> 
-        mutate(predictor = 'Island\naltitude'), 
+        mutate(predictor = 'Island altitude'), 
       slope_pars('post_footprint', 'beta_H_foot') |> 
-        mutate(predictor = 'Human\nfootprint'), 
+        mutate(predictor = 'Human footprint'), 
       slope_pars('post_nativeV', 'beta_NV') |> 
-        mutate(predictor = 'Native\nvegetation'), 
+        mutate(predictor = 'Native vegetation'), 
       slope_pars('post_bush', 'beta_bush') |> 
-        mutate(predictor = 'Bush\ncover'))
+        mutate(predictor = 'Bush cover')) |> 
+  print(n = 21)
 
-plot_beta_continuous <- 
-  rbind(slope_pars('post_latitude', 'beta_lat') |> 
-        mutate(predictor = 'Latitude'), 
-      slope_pars('post_isolation', 'beta_I_isolation') |> 
-        mutate(predictor = 'Island\nisolation'), 
-      slope_pars('post_size', 'beta_I_size') |> 
-        mutate(predictor = 'Island\nsize'), 
-      slope_pars('post_altitude', 'beta_I_alt') |> 
-        mutate(predictor = 'Island\naltitude'), 
-      slope_pars('post_footprint', 'beta_H_foot') |> 
-        mutate(predictor = 'Human\nfootprint'), 
-      slope_pars('post_nativeV', 'beta_NV') |> 
-        mutate(predictor = 'Native\nvegetation'), 
-      slope_pars('post_bush', 'beta_bush') |> 
-        mutate(predictor = 'Bush\ncover')) |> 
-  ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
-             color = `Fruit consumption`)) +
-  geom_hline(yintercept = 0, linetype = 3) +
-  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
-                linewidth = 1.5, alpha = 0.4) +
-  geom_point(position = position_dodge(width = 0.4), size = 2) +
-  scale_color_manual(values = c('#D92525', '#F2C230', '#7A577A')) +
-  labs(y = expression(beta), x = 'Predictors') +
-  theme_classic() +
-  coord_flip() +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    strip.background = element_blank(),
-    panel.border = element_blank(),
-    axis.line = element_line(linewidth = 0.25),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 7),
-    legend.background = element_blank(),
-    legend.position = c(0.8, 0.2),
-    legend.box.background = element_blank(), 
-    legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
-  )
 
 est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
                                  x_bar = dat$lat,
@@ -3017,19 +2982,13 @@ est_bush_pred <- cond_effects(posterior = post_bush_pred,
                              type = 'averaging',
                              n = 100)
 
-plot_scatter_plot <- 
-  rbind(est_latitude_tot |> 
-        mutate(var = 'Latitude', 
-               type = 'Frugivory'), 
-      est_isolation_tot |> 
+plot_scatter_plot1 <- 
+  rbind(est_isolation_tot |> 
         mutate(var = 'Island isolation', 
                type = 'Frugivory'), 
       est_isolation_pred |> 
         mutate(var = 'Island isolation', 
-               type = 'Predation'), 
-      est_size_pred |> 
-        mutate(var = 'Island size', 
-               type = 'Predation'), 
+               type = 'Predation'),
       est_alt_pred |> 
         mutate(var = 'Island altitude', 
                type = 'Predation'), 
@@ -3038,7 +2997,7 @@ plot_scatter_plot <-
                type = 'Dispersion'), 
       est_bush_pred |> 
         mutate(var = 'Bush cover', 
-               type = 'Dispersion')) |> 
+               type = 'Predation')) |> 
   ggplot(aes(x, y, ymin = li, ymax = ls)) +
   geom_ribbon(aes(fill = type), alpha = 0.5) +
   geom_line(aes(color = type)) +
@@ -3046,7 +3005,7 @@ plot_scatter_plot <-
   scale_fill_manual(values = c('#F2C230', '#D92525', '#7A577A')) +
   labs(y = 'P(fruit consumption)', 
        x = 'z-scores') +
-  facet_wrap(~var, scales = 'free', ncol = 1) +
+  facet_wrap(~var, scales = 'free', nrow = 1) +
   theme_classic() +
   theme(
     panel.grid.major = element_blank(),
@@ -3063,7 +3022,134 @@ plot_scatter_plot <-
     text = element_text(family = 'Times New Roman', size = 9)
   )
 
+plot_scatter_plot2 <- 
+  rbind(est_latitude_tot |> 
+        mutate(var = 'Latitude', 
+               type = 'Frugivory'), 
+      est_size_pred |> 
+        mutate(var = 'Island size', 
+               type = 'Predation')) |> 
+  ggplot(aes(x, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c('#D92525', '#7A577A')) +
+  scale_fill_manual(values = c('#D92525', '#7A577A')) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'z-scores') +
+  facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+plot_beta_continuous <- 
+  rbind(slope_pars('post_latitude', 'beta_lat') |> 
+          mutate(predictor = 'Latitude'), 
+        slope_pars('post_isolation', 'beta_I_isolation') |> 
+          mutate(predictor = 'Island  \nisolation'), 
+        slope_pars('post_size', 'beta_I_size') |> 
+          mutate(predictor = 'Island\nsize  '), 
+        slope_pars('post_altitude', 'beta_I_alt') |> 
+          mutate(predictor = 'Island \naltitude'), 
+        slope_pars('post_footprint', 'beta_H_foot') |> 
+          mutate(predictor = 'Human \nfootprint'), 
+        slope_pars('post_nativeV', 'beta_NV') |> 
+          mutate(predictor = 'Native   \nvegetation'), 
+        slope_pars('post_bush', 'beta_bush') |> 
+          mutate(predictor = 'Bush\ncover')) |> 
+  ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
+             color = `Fruit consumption`)) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#D92525', '#F2C230', '#7A577A')) +
+  annotate("segment",
+           x = c(1.13, 
+                 4.13, 
+                 4, 
+                 5-0.13, 
+                 5+0.13, 
+                 3+0.13, 
+                 6-0.13), 
+           xend = c(1.13,
+                    4.13, 
+                    4, 
+                    5-0.13, 
+                    5+0.13, 
+                    3+0.13, 
+                    6-0.13), # y
+           y = c(-0.8, 
+                 -0.35, 
+                 -1.1, 
+                 -0.65, 
+                 -0.83, 
+                 -0.87, 
+                 -0.73), 
+           yend = c(-0.5, 
+                    -0.05, 
+                    -0.8, 
+                    -0.35, 
+                    -0.53, 
+                    -0.57, 
+                    -0.43), # x
+           arrow = arrow(type = "closed", 
+                         length = unit(1.5, "mm"),
+                         angle = 30),
+           color = c('#7A577A', 
+                     '#7A577A', 
+                     '#F2C230', 
+                     '#D92525', 
+                     '#7A577A', 
+                     '#7A577A',
+                     '#D92525'),
+           linewidth = 0.5) +
+  labs(y = expression(beta), x = 'Predictors') +
+  theme_classic() +
+  coord_flip() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.85, 0.1),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(4, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+
 plot_grid(plot_beta_continuous, 
-          plot_scatter_plot, ncol = 2)
+          plot_grid(plot_scatter_plot1, 
+                    plot_grid(NULL, 
+                              plot_scatter_plot2, 
+                              NULL, 
+                              nrow = 1, 
+                              rel_widths = c(0.2, 0.8, 0.2)), 
+                    nrow = 2), 
+          ncol = 1, 
+          rel_heights = c(0.6, 0.4), 
+          labels = c('(a)', '(b)'), 
+          label_fontface = 'plain', 
+          label_fontfamily = 'Times New Roman', 
+          label_y = c(1, 1.05))
 
 ggsave('effects_plot.jpg', width = 10, height = 20, units = 'cm', dpi = 1e3)
+
+
+sessionInfo()
