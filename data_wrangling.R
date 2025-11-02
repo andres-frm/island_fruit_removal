@@ -45,14 +45,14 @@ coords_islands$realm <- as.factor(coords_islands$realm)
 coords_islands$real_code <- as.numeric(coords_islands$realm)
 levels(coords_islands$realm)
 
-#jpeg('map.jpeg', width = 20, height = 20, units = 'cm', res = 500)
+jpeg('map.jpeg', width = 20, height = 15, units = 'cm', res = 500)
 par(mar = c(1, 1, 1, 1))
-map("world", col="gray90", fill=TRUE, bg="white", border="gray50")
+map("world", col="gray90", fill=TRUE, border="gray50")
 coords_islands %$% points(long, lat, col = coords_islands$real_code)
-legend(x = -50, y = 190, legend = levels(coords_islands$realm), 
+legend(x = -170, y = 0, legend = levels(coords_islands$realm), 
        lty = 1, col = 1:length(levels(coords_islands$realm)), 
        cex = 0.8)
-#dev.off()
+dev.off()
 
 # ======== distance among islands =====
 
