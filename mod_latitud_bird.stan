@@ -61,7 +61,8 @@ functions{
       array[N] int Bird;
       array[N] int Lizard;
       array[N] int Mammal_non_rodent;
-      array[N] int rodent_all; // 1/0 response (use a Bernoulli)
+      array[N] int rodent_all; 
+      array[N] int dispersion;
       // propulation effects
       vector[N] lat;
       array[N] int plant_invasive_rank;
@@ -200,10 +201,10 @@ functions{
       alpha ~ normal(0, 1);
       
       // Population effects
-      TI ~ normal(0, 1);
-      p_realm ~ normal(0, 1);
+      TI ~ normal(0, 0.5);
+      p_realm ~ normal(0, 0.5);
       // inv_rank ~ normal(0, 1);
-      beta_lat ~ normal(0, 1); // main effect
+      beta_lat ~ normal(0, 0.25); // main effect
       //beta_H_pop ~  ~ normal(0, 1)normal(0, 1);
       //beta_H_foot ~ normal(0, 1);
       //beta_I_mainland ~ normal(0, 1);
@@ -220,32 +221,32 @@ functions{
       z_islands ~ normal(0, 1);
       
       // country
-      z_country ~ normal(0, 1);
-      mu_country ~ normal(0, 0.5);
-      sigma_country ~ exponential(1);
+      z_country ~ normal(0, 0.5);
+      mu_country ~ normal(0, 0.25);
+      sigma_country ~ exponential(1.5);
       
       // grid
-      z_grid ~ normal(0, 1);
-      mu_grid ~ normal(0, 0.5);
-      sigma_grid ~ exponential(1);
+      z_grid ~ normal(0, 0.5);
+      mu_grid ~ normal(0, 0.25);
+      sigma_grid ~ exponential(1.5);
       
       // plant
-      z_plant ~ normal(0, 1);
-      mu_plant ~ normal(0, 0.5);
-      sigma_plant ~ exponential(1);
+      z_plant ~ normal(0, 0.5);
+      mu_plant ~ normal(0, 0.25);
+      sigma_plant ~ exponential(1.5);
       
       // Ecoregion
-      z_ecoR ~ normal(0, 1);
-      mu_ecoR ~ normal(0, 0.5);
-      sigma_ecoR ~ exponential(1);
+      z_ecoR ~ normal(0, 0.5);
+      mu_ecoR ~ normal(0, 0.25);
+      sigma_ecoR ~ exponential(1.5);
       
       // Biome
-      z_biome ~ normal(0, 1);
-      mu_biome ~ normal(0, 0.5);
-      sigma_biome ~ exponential(1);
+      z_biome ~ normal(0, 0.5);
+      mu_biome ~ normal(0, 0.25);
+      sigma_biome ~ exponential(1.5);
       
-      Bird ~ binomial(15, 
-                               inv_logit(
+      Bird ~ binomial(1, 
+                                inv_logit(
                                alpha +
                                beta_lat * lat +
                                // beta_H_pop * +
@@ -272,7 +273,7 @@ functions{
     generated quantities {
       array[N] int ppcheck;
       
-      ppcheck = binomial_rng(15, 
+      ppcheck = binomial_rng(1, 
                              inv_logit(
                                alpha +
                                beta_lat * lat +

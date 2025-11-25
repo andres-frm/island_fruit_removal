@@ -61,7 +61,8 @@ functions{
       array[N] int Bird;
       array[N] int Lizard;
       array[N] int Mammal_non_rodent;
-      array[N] int rodent_all; // 1/0 response (use a Bernoulli)
+      array[N] int rodent_all; 
+      array[N] int dispersion;
       // propulation effects
       vector[N] lat;
       array[N] int plant_invasive_rank;
@@ -244,8 +245,8 @@ functions{
       mu_biome ~ normal(0, 0.5);
       sigma_biome ~ exponential(1);
       
-      Lizard ~ binomial(15, 
-                               inv_logit(
+      Lizard ~ binomial(1, 
+                                inv_logit(
                                alpha +
                                beta_lat * lat +
                                // beta_H_pop * +
@@ -272,7 +273,7 @@ functions{
     generated quantities {
       array[N] int ppcheck;
       
-      ppcheck = binomial_rng(15, 
+      ppcheck = binomial_rng(1, 
                              inv_logit(
                                alpha +
                                beta_lat * lat +
