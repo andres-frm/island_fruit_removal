@@ -2,7 +2,7 @@
 
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
-         'cowplot'), 
+         'cowplot', 'bayesplot'), 
        library, character.only = T)
 
 source('functions_mod_diagnostics.r')
@@ -87,6 +87,8 @@ dat$N_plant <- max(dat$plant_ID)
 dat$N_plant_invasive_rank <- max(dat$plant_invasive_rank)
 dat$N_na_bush <- length(indx_na_bush)
 dat$na_bush <- indx_na_bush
+dat$Lizard <- ifelse(dat$Lizard > 0, 1, 0)
+dat$Bird <- ifelse(dat$Bird > 0, 1, 0)
 
 # ======== Custom functions  =======
 
@@ -250,7 +252,25 @@ mod_latitude_tot <-
     seed = 23061993
   )
 
-mod_latitude_tot$save_object('mod_latitude_tot.rds')
+# mod_latitude_tot$save_object('mod_latitude_tot.rds')
+
+mod_latitude_tot <- readRDS('mod_latitude_tot.rds')
+
+
+mcmc_trace(mod_latitude_tot$draws(c('alpha', 
+                                     'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     # 'beta_I_isolation',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                    'TI', 'p_realm', 
+                                    'eta', 'rho')))
 
 sum_latitude_tot <- mod_latitude_tot$summary()
 mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
@@ -321,6 +341,215 @@ names(post_latitude_tot) <- c('alpha',
 
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_latitud_bird.stan')
+fit_latitude_bird <- cmdstan_model(file, compile = T)
+
+mod_latitude_bird <- 
+  fit_latitude_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 4e3,
+    thin = 4, 
+    seed = 23061993
+  )
+
+mod_latitude_bird$save_object('mod_latitude_bird.rds')
+
+mod_latitude_bird <- readRDS('mod_latitude_bird.rds')
+
+mcmc_trace(mod_latitude_bird$draws(c('alpha', 
+                                     'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     # 'beta_I_isolation',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     'TI', 'p_realm', 
+                                     'eta', 'rho')))
+
+
+sum_latitude_bird <- mod_latitude_bird$summary()
+mod_diagnostics(mod_latitude_bird, sum_latitude_bird)
+ppcheck_latitude_bird <- mod_latitude_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Birds fruits removal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_latitude_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+
+post_latitude_bird <- 
+  mod_latitude_bird$draws(c('alpha', 
+                           'beta_lat', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_size',
+                           # 'beta_I_alt', 
+                           # 'beta_I_isolation',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_latitude_bird <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_bird[, grep(x, colnames(post_latitude_bird))]
+           })
+
+names(post_latitude_bird) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_size',
+                              # 'beta_I_alt', 
+                              # 'beta_I_isolation',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_latitud_lizard.stan')
+fit_latitude_lizard <- cmdstan_model(file, compile = T)
+
+mod_latitude_lizard <- 
+  fit_latitude_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+mod_latitude_lizard$save_object('mod_latitude_lizard.rds')
+
+mod_latitude_lizard <- readRDS('mod_latitude_lizard.rds')
+
+mcmc_trace(mod_latitude_lizard$draws(c('alpha', 
+                                     'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     # 'beta_I_isolation',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     'TI', 'p_realm', 
+                                     'eta', 'rho')))
+
+sum_latitude_lizard <- mod_latitude_lizard$summary()
+mod_diagnostics(mod_latitude_lizard, sum_latitude_lizard)
+ppcheck_latitude_lizard <- mod_latitude_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard fruits removal', ylim = c(0, 7))
+for (i in 1:200) lines(density(ppcheck_latitude_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+
+post_latitude_lizard <- 
+  mod_latitude_lizard$draws(c('alpha', 
+                            'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_size',
+                            # 'beta_I_alt', 
+                            # 'beta_I_isolation',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_latitude_lizard <- 
+  lapply(c('alpha', 
+           'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           # 'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_latitude_lizard[, grep(x, colnames(post_latitude_lizard))]
+           })
+
+names(post_latitude_lizard) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_size',
+                               # 'beta_I_alt', 
+                               # 'beta_I_isolation',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
 # =============== Fruit dispersion  ======================
 
 file <- paste0(getwd(), '/mod_latitud_dispersion.stan')
@@ -337,7 +566,24 @@ mod_latitude_disp <-
     seed = 23061993
   )
 
-mod_latitude_disp$save_object('mod_latitude_disp.rds')
+# mod_latitude_disp$save_object('mod_latitude_disp.rds')
+
+mod_latitude_disp <- readRDS('mod_latitude_disp.rds')
+
+mcmc_trace(mod_latitude_disp$draws(c('alpha', 
+                                     'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     # 'beta_I_isolation',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     'TI', 'p_realm', 
+                                     'eta', 'rho')))
 
 sum_latitude_disp <- mod_latitude_disp$summary()
 mod_diagnostics(mod_latitude_disp, sum_latitude_disp)
@@ -424,6 +670,23 @@ mod_latitude_pred <-
   )
 
 mod_latitude_pred$save_object('mod_latitude_pred.rds')
+
+mod_latitude_pred <- readRDS('mod_latitude_pred.rds')
+
+mcmc_trace(mod_latitude_pred$draws(c('alpha', 
+                                     'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     # 'beta_I_isolation',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     'TI', 'p_realm', 
+                                     'eta', 'rho')))
 
 sum_latitude_pred <- mod_latitude_pred$summary()
 mod_diagnostics(mod_latitude_pred, sum_latitude_pred)
@@ -531,6 +794,12 @@ rbind(pivot_longer(post_latitude_tot$beta, 'beta_lat') |>
                effect = 'Latitude'), 
       pivot_longer(post_latitude_pred$beta, 'beta_lat') |> 
         mutate(type = 'Seed predation', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_bird$beta, 'beta_lat') |> 
+        mutate(type = 'Birds', 
+               effect = 'Latitude'), 
+      pivot_longer(post_latitude_lizard$beta, 'beta_lat') |> 
+        mutate(type = 'Lizards', 
                effect = 'Latitude')) |> 
   group_by(type) |> 
   transmute(mu = median(value), 
@@ -557,6 +826,20 @@ TI_tot <- average_effects(n_levels = ncol(post_latitude_tot$TI),
                           par1 = 'TI', 
                           par2 = 'p_realm')
 
+TI_bird <- average_effects(n_levels = ncol(post_latitude_bird$TI),
+                          posterior = post_latitude_bird, 
+                          x_var1 = 'island_type', 
+                          x_var2 = 'realm', 
+                          par1 = 'TI', 
+                          par2 = 'p_realm')
+
+TI_lizard <- average_effects(n_levels = ncol(post_latitude_lizard$TI),
+                          posterior = post_latitude_lizard, 
+                          x_var1 = 'island_type', 
+                          x_var2 = 'realm', 
+                          par1 = 'TI', 
+                          par2 = 'p_realm')
+
 TI_disp <- average_effects(n_levels = ncol(post_latitude_disp$TI),
                            posterior = post_latitude_disp, 
                            x_var1 = 'island_type', 
@@ -574,6 +857,10 @@ TI_pred <- average_effects(n_levels = ncol(post_latitude_pred$TI),
 
 rbind(full_join(TI_tot, codes$island_type, 'code') |> 
         mutate(type = 'Frugivory'), 
+      full_join(TI_bird, codes$island_type, 'code') |> 
+        mutate(type = 'Birds'),
+      full_join(TI_lizard, codes$island_type, 'code') |> 
+        mutate(type = 'Lizards'),
       full_join(TI_disp, codes$island_type, 'code') |> 
         mutate(type = 'Seed dispersal'), 
       full_join(TI_pred, codes$island_type, 'code') |> 
@@ -586,7 +873,7 @@ rbind(full_join(TI_tot, codes$island_type, 'code') |>
   ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
   geom_errorbar(width = 0, position = position_dodge(width = 0.2)) +
   geom_point(position = position_dodge(width = 0.2)) +
-  lims(y = c(0, 0.75)) +
+  lims(y = c(0, 0.85)) +
   labs(y = 'P(fruit consumption)', x = 'Type of island')
 
 
