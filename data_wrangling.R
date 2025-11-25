@@ -58,13 +58,14 @@ dev.off()
 
 coords_islands
 
-# shortest distance over the Earth's surface (great-circle distance).
+# shortest distance (m) over the Earth's surface (great-circle distance).
 islands_dist <- distm(coords_islands[, c("long", 'lat')], fun = distHaversine)
 dimnames(islands_dist) <- list(coords_islands$island, 
                                coords_islands$island)
 
 islands_dist[1:5, 1:5]
 
+# from meters to km
 islands_dist <- islands_dist/1e3
 
 # ======== Distance among grids ======== 
@@ -146,7 +147,7 @@ d_total <-
            alt <- median(x$altitude_m)
            bc <- median(x$bush_cover)
            
-           remotion <- sum(x$fate_bin) # total remoremovaltion
+           remotion <- sum(x$fate_bin) # total removal
            
            v <- 
              sapply(levels(x$frugivore), FUN = 
