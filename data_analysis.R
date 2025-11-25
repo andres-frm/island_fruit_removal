@@ -2126,9 +2126,9 @@ mod_altitude_tot <-
     seed = 23061993
   )
 
-mod_altitude_tot$save_object('mod_altitude_tot.rds')
-mod_altitude_disp$save_object('mod_altitude_dip.rds')
-mod_altitude_pred$save_object('mod_altitude_pred.rds')
+# mod_altitude_tot$save_object('mod_altitude_tot.rds')
+
+mod_altitude_tot <- readRDS('mod_altitude_tot.rds')
 
 sum_altitude_tot <- mod_altitude_tot$summary()
 mod_diagnostics(mod_altitude_tot, sum_altitude_tot)
@@ -2215,12 +2215,30 @@ mod_altitude_disp <-
     seed = 23061993
   )
 
+# mod_altitude_disp$save_object('mod_altitude_disp.rds')
+
+mod_altitude_disp <- readRDS('mod_altitude_disp.rds')
+
+mcmc_trace(mod_altitude_disp$draws(c('alpha', 
+                                     # 'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_altitude',
+                                     # 'beta_I_alt', 
+                                     'beta_I_alt',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     )))
+
 sum_altitude_disp <- mod_altitude_disp$summary()
 mod_diagnostics(mod_altitude_disp, sum_altitude_disp)
 ppcheck_altitude_disp <- mod_altitude_disp$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$dispersion), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+     xlab = 'Seed dispersal', ylim = c(0, 0.4))
 for (i in 1:200) lines(density(ppcheck_altitude_disp[i, ], lwd = 0.1))
 lines(density(dat$dispersion), lwd = 2, col = 'red')
 
@@ -2282,6 +2300,210 @@ names(post_altitude_disp) <- c('alpha',
                            'p_ecoR', 'p_biome')
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_altitude_bird.stan')
+fit_altitude_bird <- cmdstan_model(file, compile = T)
+
+mod_altitude_bird <- 
+  fit_altitude_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+#mod_altitude_bird$save_object('mod_altitude_bird.rds')
+
+mod_altitude_bird <- readRDS('mod_altitude_bird.rds')
+
+mcmc_trace(mod_altitude_bird$draws(c('alpha', 
+                                     # 'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_altitude',
+                                     # 'beta_I_alt', 
+                                     'beta_I_alt',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
+
+sum_altitude_bird <- mod_altitude_bird$summary()
+mod_diagnostics(mod_altitude_bird, sum_altitude_bird)
+ppcheck_altitude_bird <- mod_altitude_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird seed dispersal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_altitude_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_altitude_bird <- 
+  mod_altitude_bird$draws(c('alpha', 
+                            # 'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_altitude',
+                            # 'beta_I_alt', 
+                            'beta_I_alt',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_altitude_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_altitude',
+           # 'beta_I_alt', 
+           'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_altitude_bird[, grep(x, colnames(post_altitude_bird))]
+           })
+
+names(post_altitude_bird) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_altitude',
+                               # 'beta_I_alt', 
+                               # 'beta_I_altitude',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_altitude_lizard.stan')
+fit_altitude_lizard <- cmdstan_model(file, compile = T)
+
+mod_altitude_lizard <- 
+  fit_altitude_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+#mod_altitude_lizard$save_object('mod_altitude_lizard.rds')
+
+mod_altitude_lizard <- readRDS('mod_altitude_lizard.rds')
+
+mcmc_trace(mod_altitude_lizard$draws(c('alpha', 
+                                     # 'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_altitude',
+                                     # 'beta_I_alt', 
+                                     'beta_I_alt',
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
+
+sum_altitude_lizard <- mod_altitude_lizard$summary()
+mod_diagnostics(mod_altitude_lizard, sum_altitude_lizard)
+ppcheck_altitude_lizard <- mod_altitude_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard seed dispersal', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_altitude_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_altitude_lizard <- 
+  mod_altitude_lizard$draws(c('alpha', 
+                            # 'beta_lat', 
+                            # 'beta_H_pop', 
+                            # 'beta_H_foot',
+                            # 'beta_I_mainland', 
+                            # 'beta_I_altitude',
+                            # 'beta_I_alt', 
+                            'beta_I_alt',
+                            # 'beta_temp', 
+                            # 'beta_NV',
+                            # 'beta_bush', 
+                            # 'inv_rank', 
+                            'TI', 'p_island', 
+                            'p_country', 'p_grid', 
+                            'p_plant', 'p_realm', 
+                            'p_ecoR', 'p_biome'), 
+                          format = 'df')
+
+post_altitude_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_altitude',
+           # 'beta_I_alt', 
+           'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_altitude_lizard[, grep(x, colnames(post_altitude_lizard))]
+           })
+
+names(post_altitude_lizard) <- c('alpha', 
+                               'beta', 
+                               # 'beta_H_pop', 
+                               # 'beta_H_foot',
+                               # 'beta_I_mainland', 
+                               # 'beta_I_altitude',
+                               # 'beta_I_alt', 
+                               # 'beta_I_altitude',
+                               # 'beta_temp', 
+                               # 'beta_NV',
+                               # 'beta_bush', 
+                               # 'inv_rank', 
+                               'TI', 'p_island', 
+                               'p_country', 'p_grid', 
+                               'p_plant', 'p_realm', 
+                               'p_ecoR', 'p_biome')
+
+
+
+
 
 # =============== Fruit predation  ======================
 
@@ -2299,13 +2521,17 @@ mod_altitude_pred <-
     seed = 23061993
   )
 
+# mod_altitude_pred$save_object('mod_altitude_pred.rds')
+
+mod_altitude_pred <- readRDS('mod_altitude_pred.rds')
+
 sum_altitude_pred <- mod_altitude_pred$summary()
 mod_diagnostics(mod_altitude_pred, sum_altitude_pred)
 
 ppcheck_altitude_pred <- mod_altitude_pred$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$predation), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+     xlab = 'Fruit predation', ylim = c(0, 0.4))
 for (i in 1:200) lines(density(ppcheck_altitude_pred[i, ], lwd = 0.1))
 lines(density(dat$predation), lwd = 2, col = 'red')
 
@@ -2376,7 +2602,13 @@ names(post_altitude_pred) <- c('alpha',
 
 rbind(pivot_longer(post_altitude_tot$beta, 'beta_I_alt') |> 
         mutate(type = 'Frugivory', 
-               effect = 'Island altitude'), 
+               effect = 'Island altitude'),
+      pivot_longer(post_altitude_bird$beta, 'beta_I_alt') |> 
+        mutate(type = 'Birds', 
+               effect = 'Island altitude'),
+      pivot_longer(post_altitude_lizard$beta, 'beta_I_alt') |> 
+        mutate(type = 'Lizards', 
+               effect = 'Island altitude'),
       pivot_longer(post_altitude_disp$beta, 'beta_I_alt') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Island altitude'), 
@@ -2451,9 +2683,23 @@ mod_footprint_tot <-
     seed = 23061993
   )
 
-mod_footprint_tot$save_object('mod_footprint_tot.rds')
-mod_footprint_disp$save_object('mod_footprint_dip.rds')
-mod_footprint_pred$save_object('mod_footprint_pred.rds')
+# mod_footprint_tot$save_object('mod_footprint_tot.rds')
+
+mod_footprint_tot <- readRDS('mod_footprint_tot.rds')
+
+mcmc_trace(mod_footprint_tot$draws(c('alpha', 
+                                        # 'beta_lat', 
+                                        # 'beta_H_pop', 
+                                        'beta_H_foot',
+                                        # 'beta_I_mainland', 
+                                        # 'beta_I_footprint',
+                                        # 'beta_I_alt', 
+                                        # 'beta_I_alt',
+                                        # 'beta_temp', 
+                                        # 'beta_NV',
+                                        # 'beta_bush', 
+                                        # 'inv_rank', 
+                                        )))
 
 sum_footprint_tot <- mod_footprint_tot$summary()
 mod_diagnostics(mod_footprint_tot, sum_footprint_tot)
@@ -2540,12 +2786,30 @@ mod_footprint_disp <-
     seed = 23061993
   )
 
+#mod_footprint_disp$save_object('mod_footprint_disp.rds')
+
+mod_footprint_disp <- readRDS('mod_footprint_disp.rds')
+
+mcmc_trace(mod_footprint_disp$draws(c('alpha', 
+                                        # 'beta_lat', 
+                                        # 'beta_H_pop', 
+                                        'beta_H_foot',
+                                        # 'beta_I_mainland', 
+                                        # 'beta_I_footprint',
+                                        # 'beta_I_alt', 
+                                        # 'beta_I_alt',
+                                        # 'beta_temp', 
+                                        # 'beta_NV',
+                                        # 'beta_bush', 
+                                        # 'inv_rank', 
+)))
+
 sum_footprint_disp <- mod_footprint_disp$summary()
 mod_diagnostics(mod_footprint_disp, sum_footprint_disp)
 ppcheck_footprint_disp <- mod_footprint_disp$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$dispersion), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+     xlab = 'Seed dispersal', ylim = c(0, 0.4))
 for (i in 1:200) lines(density(ppcheck_footprint_disp[i, ], lwd = 0.1))
 lines(density(dat$dispersion), lwd = 2, col = 'red')
 
@@ -2607,6 +2871,210 @@ names(post_footprint_disp) <- c('alpha',
                                'p_ecoR', 'p_biome')
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_footprint_bird.stan')
+fit_footprint_bird <- cmdstan_model(file, compile = T)
+
+mod_footprint_bird <- 
+  fit_footprint_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+# mod_footprint_bird$save_object('mod_footprint_bird.rds')
+
+mod_footprint_bird <- readRDS('mod_footprint_bird.rds')
+
+mcmc_trace(mod_footprint_bird$draws(c('alpha', 
+                                        # 'beta_lat', 
+                                        # 'beta_H_pop', 
+                                        'beta_H_foot',
+                                        # 'beta_I_mainland', 
+                                        # 'beta_I_footprint',
+                                        # 'beta_I_alt', 
+                                        # 'beta_I_alt',
+                                        # 'beta_temp', 
+                                        # 'beta_NV',
+                                        # 'beta_bush', 
+                                        # 'inv_rank', 
+)))
+
+sum_footprint_bird <- mod_footprint_bird$summary()
+mod_diagnostics(mod_footprint_bird, sum_footprint_bird)
+ppcheck_footprint_bird <- mod_footprint_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird seed dispersal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_footprint_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_footprint_bird <- 
+  mod_footprint_bird$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_footprint',
+                             # 'beta_I_alt', 
+                             # 'beta_I_alt',
+                             # 'beta_temp', 
+                             # 'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_footprint_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_footprint',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_footprint_bird[, grep(x, colnames(post_footprint_bird))]
+           })
+
+names(post_footprint_bird) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_footprint',
+                                # 'beta_I_alt', 
+                                # 'beta_I_footprint',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_footprint_lizard.stan')
+fit_footprint_lizard <- cmdstan_model(file, compile = T)
+
+mod_footprint_lizard <- 
+  fit_footprint_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+mod_footprint_lizard$save_object('mod_footprint_lizard.rds')
+
+mod_footprint_lizard <- readRDS('mod_footprint_lizard.rds')
+
+mcmc_trace(mod_footprint_lizard$draws(c('alpha', 
+                                        # 'beta_lat', 
+                                        # 'beta_H_pop', 
+                                        'beta_H_foot',
+                                        # 'beta_I_mainland', 
+                                        # 'beta_I_footprint',
+                                        # 'beta_I_alt', 
+                                        # 'beta_I_alt',
+                                        # 'beta_temp', 
+                                        # 'beta_NV',
+                                        # 'beta_bush', 
+                                        # 'inv_rank', 
+)))
+
+sum_footprint_lizard <- mod_footprint_lizard$summary()
+mod_diagnostics(mod_footprint_lizard, sum_footprint_lizard)
+ppcheck_footprint_lizard <- mod_footprint_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard seed dispersal', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_footprint_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_footprint_lizard <- 
+  mod_footprint_lizard$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_footprint',
+                             # 'beta_I_alt', 
+                             # 'beta_I_alt',
+                             # 'beta_temp', 
+                             # 'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_footprint_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_footprint',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_footprint_lizard[, grep(x, colnames(post_footprint_lizard))]
+           })
+
+names(post_footprint_lizard) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_footprint',
+                                # 'beta_I_alt', 
+                                # 'beta_I_footprint',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+
+
 
 # =============== Fruit predation  ======================
 
@@ -2623,6 +3091,23 @@ mod_footprint_pred <-
     thin = 3, 
     seed = 23061993
   )
+
+# mod_footprint_pred$save_object('mod_footprint_pred.rds')
+mod_footprint_pred <- readRDS('mod_footprint_pred.rds')
+
+mcmc_trace(mod_footprint_pred$draws(c('alpha', 
+                                        # 'beta_lat', 
+                                        # 'beta_H_pop', 
+                                        'beta_H_foot',
+                                        # 'beta_I_mainland', 
+                                        # 'beta_I_footprint',
+                                        # 'beta_I_alt', 
+                                        # 'beta_I_alt',
+                                        # 'beta_temp', 
+                                        # 'beta_NV',
+                                        # 'beta_bush', 
+                                        # 'inv_rank', 
+)))
 
 sum_footprint_pred <- mod_footprint_pred$summary()
 mod_diagnostics(mod_footprint_pred, sum_footprint_pred)
@@ -2701,7 +3186,13 @@ names(post_footprint_pred) <- c('alpha',
 
 rbind(pivot_longer(post_footprint_tot$beta, 'beta_H_foot') |> 
         mutate(type = 'Frugivory', 
-               effect = 'Human footprint'), 
+               effect = 'Human footprint'),
+      pivot_longer(post_footprint_bird$beta, 'beta_H_foot') |> 
+        mutate(type = 'Birds', 
+               effect = 'Human footprint'),
+      pivot_longer(post_footprint_lizard$beta, 'beta_H_foot') |> 
+        mutate(type = 'Lizard', 
+               effect = 'Human footprint'),
       pivot_longer(post_footprint_disp$beta, 'beta_H_foot') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Human footprint'), 
@@ -2728,13 +3219,6 @@ rbind(pivot_longer(post_footprint_tot$beta, 'beta_H_foot') |>
 
 
 
-
-
-
-
-
-
-
 # =============== *Native vegetation* ==========
 
 # =============== Overall frugivory  ======================
@@ -2753,9 +3237,22 @@ mod_nativeV_tot <-
     seed = 23061993
   )
 
-mod_nativeV_tot$save_object('mod_nativeV_tot.rds')
-mod_nativeV_disp$save_object('mod_nativeV_dip.rds')
-mod_nativeV_pred$save_object('mod_nativeV_pred.rds')
+# mod_nativeV_tot$save_object('mod_nativeV_tot.rds')
+mod_nativeV_tot <- readRDS('mod_nativeV_tot.rds')
+
+mcmc_trace(mod_nativeV_tot$draws(c('alpha', 
+                                      # 'beta_lat', 
+                                      # 'beta_H_pop', 
+                                      #'beta_H_foot',
+                                      # 'beta_I_mainland', 
+                                      # 'beta_I_nativeV',
+                                      # 'beta_I_alt', 
+                                      # 'beta_I_alt',
+                                      # 'beta_temp', 
+                                      'beta_NV',
+                                      # 'beta_bush', 
+                                      # 'inv_rank', 
+)))
 
 sum_nativeV_tot <- mod_nativeV_tot$summary()
 mod_diagnostics(mod_nativeV_tot, sum_nativeV_tot)
@@ -2765,6 +3262,7 @@ plot(density(dat$total_remotion), main = '',
      xlab = 'Total fruits removal', ylim = c(0, 0.1))
 for (i in 1:200) lines(density(ppcheck_nativeV_tot[i, ], lwd = 0.1))
 lines(density(dat$total_remotion), lwd = 2, col = 'red')
+
 
 
 post_nativeV_tot <- 
@@ -2842,12 +3340,30 @@ mod_nativeV_disp <-
     seed = 23061993
   )
 
+# mod_nativeV_disp$save_object('mod_nativeV_disp.rds')
+
+mod_nativeV_disp <- readRDS('mod_nativeV_disp.rds')
+
+mcmc_trace(mod_nativeV_disp$draws(c('alpha', 
+                                      # 'beta_lat', 
+                                      # 'beta_H_pop', 
+                                      #'beta_H_foot',
+                                      # 'beta_I_mainland', 
+                                      # 'beta_I_nativeV',
+                                      # 'beta_I_alt', 
+                                      # 'beta_I_alt',
+                                      # 'beta_temp', 
+                                      'beta_NV',
+                                      # 'beta_bush', 
+                                      # 'inv_rank', 
+)))
+
 sum_nativeV_disp <- mod_nativeV_disp$summary()
 mod_diagnostics(mod_nativeV_disp, sum_nativeV_disp)
 ppcheck_nativeV_disp <- mod_nativeV_disp$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$dispersion), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+     xlab = 'Seed dispersal', ylim = c(0, 0.4))
 for (i in 1:200) lines(density(ppcheck_nativeV_disp[i, ], lwd = 0.1))
 lines(density(dat$dispersion), lwd = 2, col = 'red')
 
@@ -2908,6 +3424,208 @@ names(post_nativeV_disp) <- c('alpha',
                                 'p_plant', 'p_realm', 
                                 'p_ecoR', 'p_biome')
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_nativeV_bird.stan')
+fit_nativeV_bird <- cmdstan_model(file, compile = T)
+
+mod_nativeV_bird <- 
+  fit_nativeV_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+mod_nativeV_bird$save_object('mod_nativeV_bird.rds')
+
+mod_nativeV_bird <- readRDS('mod_nativeV_bird.rds')
+
+mcmc_trace(mod_nativeV_bird$draws(c('alpha', 
+                                      # 'beta_lat', 
+                                      # 'beta_H_pop', 
+                                      #'beta_H_foot',
+                                      # 'beta_I_mainland', 
+                                      # 'beta_I_nativeV',
+                                      # 'beta_I_alt', 
+                                      # 'beta_I_alt',
+                                      # 'beta_temp', 
+                                      'beta_NV',
+                                      # 'beta_bush', 
+                                      # 'inv_rank', 
+)))
+
+sum_nativeV_bird <- mod_nativeV_bird$summary()
+mod_diagnostics(mod_nativeV_bird, sum_nativeV_bird)
+ppcheck_nativeV_bird <- mod_nativeV_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird seed dispersal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_nativeV_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_nativeV_bird <- 
+  mod_nativeV_bird$draws(c('alpha', 
+                           # 'beta_lat', 
+                           # 'beta_H_pop', 
+                           #'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_nativeV',
+                           # 'beta_I_alt', 
+                           # 'beta_I_alt',
+                           # 'beta_temp', 
+                           'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_nativeV_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_nativeV',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_nativeV_bird[, grep(x, colnames(post_nativeV_bird))]
+           })
+
+names(post_nativeV_bird) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_nativeV',
+                              # 'beta_I_alt', 
+                              # 'beta_I_nativeV',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_nativeV_lizard.stan')
+fit_nativeV_lizard <- cmdstan_model(file, compile = T)
+
+mod_nativeV_lizard <- 
+  fit_nativeV_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+mod_nativeV_lizard$save_object('mod_nativeV_lizard.rds')
+
+mod_nativeV_lizard <- readRDS('mod_nativeV_lizard.rds')
+
+mcmc_trace(mod_nativeV_lizard$draws(c('alpha', 
+                                      # 'beta_lat', 
+                                      # 'beta_H_pop', 
+                                      #'beta_H_foot',
+                                      # 'beta_I_mainland', 
+                                      # 'beta_I_nativeV',
+                                      # 'beta_I_alt', 
+                                      # 'beta_I_alt',
+                                      # 'beta_temp', 
+                                      'beta_NV',
+                                      # 'beta_bush', 
+                                      # 'inv_rank', 
+                                      )))
+
+sum_nativeV_lizard <- mod_nativeV_lizard$summary()
+mod_diagnostics(mod_nativeV_lizard, sum_nativeV_lizard)
+ppcheck_nativeV_lizard <- mod_nativeV_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard seed dispersal', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_nativeV_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_nativeV_lizard <- 
+  mod_nativeV_lizard$draws(c('alpha', 
+                           # 'beta_lat', 
+                           # 'beta_H_pop', 
+                           #'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_nativeV',
+                           # 'beta_I_alt', 
+                           # 'beta_I_alt',
+                           # 'beta_temp', 
+                           'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome'), 
+                         format = 'df')
+
+post_nativeV_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_nativeV',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_nativeV_lizard[, grep(x, colnames(post_nativeV_lizard))]
+           })
+
+names(post_nativeV_lizard) <- c('alpha', 
+                              'beta', 
+                              # 'beta_H_pop', 
+                              # 'beta_H_foot',
+                              # 'beta_I_mainland', 
+                              # 'beta_I_nativeV',
+                              # 'beta_I_alt', 
+                              # 'beta_I_nativeV',
+                              # 'beta_temp', 
+                              # 'beta_NV',
+                              # 'beta_bush', 
+                              # 'inv_rank', 
+                              'TI', 'p_island', 
+                              'p_country', 'p_grid', 
+                              'p_plant', 'p_realm', 
+                              'p_ecoR', 'p_biome')
+
+
 
 
 # =============== Fruit predation  ======================
@@ -2926,8 +3644,24 @@ mod_nativeV_pred <-
     seed = 23061993
   )
 
+mod_nativeV_pred$save_object('mod_nativeV_pred.rds')
+
 sum_nativeV_pred <- mod_nativeV_pred$summary()
 mod_diagnostics(mod_nativeV_pred, sum_nativeV_pred)
+
+mcmc_trace(mod_nativeV_pred$draws(c('alpha', 
+                                      # 'beta_lat', 
+                                      # 'beta_H_pop', 
+                                      #'beta_H_foot',
+                                      # 'beta_I_mainland', 
+                                      # 'beta_I_nativeV',
+                                      # 'beta_I_alt', 
+                                      # 'beta_I_alt',
+                                      # 'beta_temp', 
+                                      'beta_NV',
+                                      # 'beta_bush', 
+                                      # 'inv_rank', 
+)))
 
 ppcheck_nativeV_pred <- mod_nativeV_pred$draws('ppcheck', format = 'matrix')
 
