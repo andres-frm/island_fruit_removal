@@ -6,10 +6,21 @@ format:
   pdf: 
     include-in-header:
       text: |
+        \renewcommand{\thesection}{S\arabic{section}}
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
-        \renewcommand{\thesubsubsection}{S\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
         \renewcommand{\thefigure}{S\arabic{figure}}
         \renewcommand{\thetable}{S\arabic{table}}
+        \renewcommand{\thesection}{S\arabic{section}}
+        \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
+        \renewcommand{\thefigure}{S\arabic{figure}}
+        \renewcommand{\thetable}{S\arabic{table}}
+        \usepackage{fvextra}
+        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{
+          fontsize=\footnotesize,
+          baselinestretch=0.8,
+          commandchars=\\\{\}  
+        }
+        \usepackage{xcolor} 
     toc: true
     toc-depth: 10
     number-sections: true
