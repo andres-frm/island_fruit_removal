@@ -893,6 +893,20 @@ realm_disp <- average_effects(n_levels = ncol(post_latitude_disp$p_realm),
                            par1 = 'p_realm', 
                            par2 = 'TI')
 
+realm_bird <- average_effects(n_levels = ncol(post_latitude_bird$p_realm),
+                              posterior = post_latitude_bird, 
+                              x_var1 = 'realm', 
+                              x_var2 = 'island_type', 
+                              par1 = 'p_realm', 
+                              par2 = 'TI')
+
+realm_lizard <- average_effects(n_levels = ncol(post_latitude_lizard$p_realm),
+                              posterior = post_latitude_lizard, 
+                              x_var1 = 'realm', 
+                              x_var2 = 'island_type', 
+                              par1 = 'p_realm', 
+                              par2 = 'TI')
+
 realm_pred <- average_effects(n_levels = ncol(post_latitude_pred$p_realm),
                            posterior = post_latitude_pred, 
                            x_var1 = 'realm', 
@@ -902,7 +916,11 @@ realm_pred <- average_effects(n_levels = ncol(post_latitude_pred$p_realm),
 
 
 rbind(full_join(realm_tot, codes$real, 'code') |> 
-        mutate(type = 'Frugivory'), 
+        mutate(type = 'Frugivory'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Birds'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizards'),
       full_join(realm_disp, codes$real, 'code') |> 
         mutate(type = 'Seed dispersal'), 
       full_join(realm_pred, codes$real, 'code') |> 
@@ -916,7 +934,7 @@ rbind(full_join(realm_tot, codes$real, 'code') |>
   geom_errorbar(width = 0, position = position_dodge(width = 0.3)) +
   geom_point(position = position_dodge(width = 0.3)) +
   labs(y = 'P(fruit consumption)', x = 'Biogeographic realm') +
-  facet_wrap(~type, scales = 'fixed') +
+  facet_wrap(~type, scales = 'free_y') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
 
@@ -940,7 +958,23 @@ mod_isolation_tot <-
     seed = 23061993
   )
 
-mod_isolation_tot$save_object('mod_isolation_tot.rds')
+# mod_isolation_tot$save_object('mod_isolation_tot.rds')
+
+mod_isolation_tot <- readRDS('mod_isolation_tot.rds')
+
+mcmc_trace(mod_isolation_tot$draws(c('alpha', 
+                                     #'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     'beta_I_isolation'
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+                                     )))
 
 sum_isolation_tot <- mod_isolation_tot$summary()
 mod_diagnostics(mod_isolation_tot, sum_isolation_tot)
@@ -1027,7 +1061,23 @@ mod_isolation_disp <-
     seed = 23061993
   )
 
-mod_isolation_disp$save_object('mod_isolation_disp.rds')
+# mod_isolation_disp$save_object('mod_isolation_disp.rds')
+
+mod_isolation_disp <- readRDS('mod_isolation_disp.rds')
+
+mcmc_trace(mod_isolation_disp$draws(c('alpha', 
+                                     #'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     'beta_I_isolation'
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
 
 sum_isolation_disp <- mod_isolation_disp$summary()
 mod_diagnostics(mod_isolation_disp, sum_isolation_disp)
@@ -1096,6 +1146,211 @@ names(post_isolation_disp) <- c('alpha',
                                'p_ecoR', 'p_biome')
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_isolation_bird.stan')
+fit_isolation_bird <- cmdstan_model(file, compile = T)
+
+mod_isolation_bird <- 
+  fit_isolation_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+# mod_isolation_bird$save_object('mod_isolation_bird.rds')
+
+mod_isolation_bird <- readRDS('mod_isolation_bird.rds')
+
+mcmc_trace(mod_isolation_bird$draws(c('alpha', 
+                                     #'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     'beta_I_isolation'
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
+
+sum_isolation_bird <- mod_isolation_bird$summary()
+mod_diagnostics(mod_isolation_bird, sum_isolation_bird)
+ppcheck_isolation_bird <- mod_isolation_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird fruits removal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_isolation_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_isolation_bird <- 
+  mod_isolation_bird$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             # 'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_size',
+                             # 'beta_I_alt', 
+                             'beta_I_isolation',
+                             # 'beta_temp', 
+                             # 'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_isolation_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_isolation_bird[, grep(x, colnames(post_isolation_bird))]
+           })
+
+names(post_isolation_bird) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                # 'beta_I_isolation',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_isolation_lizard.stan')
+fit_isolation_lizard <- cmdstan_model(file, compile = T)
+
+mod_isolation_lizard <- 
+  fit_isolation_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+#mod_isolation_lizard$save_object('mod_isolation_lizard.rds')
+
+mod_isolation_lizard <- readRDS('mod_isolation_lizard.rds')
+
+mcmc_trace(mod_isolation_lizard$draws(c('alpha', 
+                                     #'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     'beta_I_isolation'
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
+
+sum_isolation_lizard <- mod_isolation_lizard$summary()
+mod_diagnostics(mod_isolation_lizard, sum_isolation_lizard)
+ppcheck_isolation_lizard <- mod_isolation_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard fruits removal', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_isolation_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_isolation_lizard <- 
+  mod_isolation_lizard$draws(c('alpha', 
+                             # 'beta_lat', 
+                             # 'beta_H_pop', 
+                             # 'beta_H_foot',
+                             # 'beta_I_mainland', 
+                             # 'beta_I_size',
+                             # 'beta_I_alt', 
+                             'beta_I_isolation',
+                             # 'beta_temp', 
+                             # 'beta_NV',
+                             # 'beta_bush', 
+                             # 'inv_rank', 
+                             'TI', 'p_island', 
+                             'p_country', 'p_grid', 
+                             'p_plant', 'p_realm', 
+                             'p_ecoR', 'p_biome'), 
+                           format = 'df')
+
+post_isolation_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           'beta_I_isolation',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_isolation_lizard[, grep(x, colnames(post_isolation_lizard))]
+           })
+
+names(post_isolation_lizard) <- c('alpha', 
+                                'beta', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                # 'beta_I_isolation',
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                'TI', 'p_island', 
+                                'p_country', 'p_grid', 
+                                'p_plant', 'p_realm', 
+                                'p_ecoR', 'p_biome')
+
+
+
+
+
 
 # =============== Fruit predation  ======================
 
@@ -1113,7 +1368,23 @@ mod_isolation_pred <-
     seed = 23061993
   )
 
-mod_isolation_pred$save_object('mod_isolation_pred.rds')
+# mod_isolation_pred$save_object('mod_isolation_pred.rds')
+
+mod_isolation_pred <- readRDS('mod_isolation_pred.rds')
+
+mcmc_trace(mod_isolation_pred$draws(c('alpha', 
+                                     #'beta_lat', 
+                                     # 'beta_H_pop', 
+                                     # 'beta_H_foot',
+                                     # 'beta_I_mainland', 
+                                     # 'beta_I_size',
+                                     # 'beta_I_alt', 
+                                     'beta_I_isolation'
+                                     # 'beta_temp', 
+                                     # 'beta_NV',
+                                     # 'beta_bush', 
+                                     # 'inv_rank', 
+)))
 
 sum_isolation_pred <- mod_isolation_pred$summary()
 mod_diagnostics(mod_isolation_pred, sum_isolation_pred)
@@ -1221,6 +1492,12 @@ est_latitude_tot %$% lines(x, ls, lty = 3)
 rbind(pivot_longer(post_isolation_tot$beta, 'beta_I_isolation') |> 
         mutate(type = 'Frugivory', 
                effect = 'Island isolation'), 
+      pivot_longer(post_isolation_bird$beta, 'beta_I_isolation') |> 
+        mutate(type = 'Birds', 
+               effect = 'Island isolation'), 
+      pivot_longer(post_isolation_lizard$beta, 'beta_I_isolation') |> 
+        mutate(type = 'Lizards', 
+               effect = 'Island isolation'), 
       pivot_longer(post_isolation_disp$beta, 'beta_I_isolation') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Island isolation'), 
@@ -1263,7 +1540,23 @@ mod_size_tot <-
     seed = 23061993
   )
 
-mod_size_tot$save_object('mod_size_tot.rds')
+# mod_size_tot$save_object('mod_size_tot.rds')
+
+mod_size_tot <- readRDS('mod_size_tot.rds')
+
+mcmc_trace(mod_size_tot$draws(c('alpha', 
+                                #'beta_lat', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                'beta_I_size'
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+                                )))
 
 sum_size_tot <- mod_size_tot$summary()
 mod_diagnostics(mod_size_tot, sum_size_tot)
@@ -1350,7 +1643,23 @@ mod_size_disp <-
     seed = 23061993
   )
 
-mod_size_disp$save_object('mod_size_disp.rds')
+# mod_size_disp$save_object('mod_size_disp.rds')
+
+mod_size_disp <- readRDS('mod_size_disp.rds')
+
+mcmc_trace(mod_size_tot$draws(c('alpha', 
+                                #'beta_lat', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                'beta_I_size'
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+)))
 
 sum_size_disp <- mod_size_disp$summary()
 mod_diagnostics(mod_size_disp, sum_size_disp)
@@ -1419,6 +1728,211 @@ names(post_size_disp) <- c('alpha',
                                 'p_ecoR', 'p_biome')
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_size_bird.stan')
+fit_size_bird <- cmdstan_model(file, compile = T)
+
+mod_size_bird <- 
+  fit_size_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+#mod_size_bird$save_object('mod_size_bird.rds')
+
+mod_size_bird <- readRDS('mod_size_bird.rds')
+
+mcmc_trace(mod_size_bird$draws(c('alpha', 
+                                #'beta_lat', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                'beta_I_size'
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+)))
+
+sum_size_bird <- mod_size_bird$summary()
+mod_diagnostics(mod_size_bird, sum_size_bird)
+ppcheck_size_bird <- mod_size_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird fruits removal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_size_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_size_bird <- 
+  mod_size_bird$draws(c('alpha', 
+                        # 'beta_lat', 
+                        # 'beta_H_pop', 
+                        # 'beta_H_foot',
+                        # 'beta_I_mainland', 
+                        # 'beta_I_size',
+                        # 'beta_I_alt', 
+                        'beta_I_size',
+                        # 'beta_temp', 
+                        # 'beta_NV',
+                        # 'beta_bush', 
+                        # 'inv_rank', 
+                        'TI', 'p_island', 
+                        'p_country', 'p_grid', 
+                        'p_plant', 'p_realm', 
+                        'p_ecoR', 'p_biome'), 
+                      format = 'df')
+
+post_size_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           'beta_I_size',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_size_bird[, grep(x, colnames(post_size_bird))]
+           })
+
+names(post_size_bird) <- c('alpha', 
+                           'beta', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_size',
+                           # 'beta_I_alt', 
+                           # 'beta_I_size',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome')
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_size_lizard.stan')
+fit_size_lizard <- cmdstan_model(file, compile = T)
+
+mod_size_lizard <- 
+  fit_size_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+#mod_size_lizard$save_object('mod_size_lizard.rds')
+
+mod_size_lizard <- readRDS('mod_size_lizard.rds')
+
+mcmc_trace(mod_size_lizard$draws(c('alpha', 
+                                #'beta_lat', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                'beta_I_size'
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+)))
+
+sum_size_lizard <- mod_size_lizard$summary()
+mod_diagnostics(mod_size_lizard, sum_size_lizard)
+ppcheck_size_lizard <- mod_size_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard fruits removal', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_size_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_size_lizard <- 
+  mod_size_lizard$draws(c('alpha', 
+                        # 'beta_lat', 
+                        # 'beta_H_pop', 
+                        # 'beta_H_foot',
+                        # 'beta_I_mainland', 
+                        # 'beta_I_size',
+                        # 'beta_I_alt', 
+                        'beta_I_size',
+                        # 'beta_temp', 
+                        # 'beta_NV',
+                        # 'beta_bush', 
+                        # 'inv_rank', 
+                        'TI', 'p_island', 
+                        'p_country', 'p_grid', 
+                        'p_plant', 'p_realm', 
+                        'p_ecoR', 'p_biome'), 
+                      format = 'df')
+
+post_size_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_size',
+           # 'beta_I_alt', 
+           'beta_I_size',
+           # 'beta_temp', 
+           # 'beta_NV',
+           # 'beta_bush', 
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_size_lizard[, grep(x, colnames(post_size_lizard))]
+           })
+
+names(post_size_lizard) <- c('alpha', 
+                           'beta', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_size',
+                           # 'beta_I_alt', 
+                           # 'beta_I_size',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome')
+
+
+
+
+
 
 # =============== Fruit predation  ======================
 
@@ -1436,7 +1950,23 @@ mod_size_pred <-
     seed = 23061993
   )
 
-mod_size_pred$save_object('mod_size_pred.rds')
+# mod_size_pred$save_object('mod_size_pred.rds')
+
+mod_size_pred <- readRDS('mod_size_pred.rds')
+
+mcmc_trace(mod_size_pred$draws(c('alpha', 
+                                #'beta_lat', 
+                                # 'beta_H_pop', 
+                                # 'beta_H_foot',
+                                # 'beta_I_mainland', 
+                                # 'beta_I_size',
+                                # 'beta_I_alt', 
+                                'beta_I_size'
+                                # 'beta_temp', 
+                                # 'beta_NV',
+                                # 'beta_bush', 
+                                # 'inv_rank', 
+)))
 
 sum_size_pred <- mod_size_pred$summary()
 mod_diagnostics(mod_size_pred, sum_size_pred)
@@ -1444,7 +1974,7 @@ mod_diagnostics(mod_size_pred, sum_size_pred)
 ppcheck_size_pred <- mod_size_pred$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$predation), main = '', 
-     xlab = 'Total fruits removal', ylim = c(0, 0.4))
+     xlab = 'Predation', ylim = c(0, 0.4))
 for (i in 1:200) lines(density(ppcheck_size_pred[i, ], lwd = 0.1))
 lines(density(dat$predation), lwd = 2, col = 'red')
 
@@ -1543,6 +2073,12 @@ est_latitude_tot %$% lines(x, ls, lty = 3)
 
 rbind(pivot_longer(post_size_tot$beta, 'beta_I_size') |> 
         mutate(type = 'Frugivory', 
+               effect = 'Island size'), 
+      pivot_longer(post_size_bird$beta, 'beta_I_size') |> 
+        mutate(type = 'Birds', 
+               effect = 'Island size'), 
+      pivot_longer(post_size_lizard$beta, 'beta_I_size') |> 
+        mutate(type = 'Lizards', 
                effect = 'Island size'), 
       pivot_longer(post_size_disp$beta, 'beta_I_size') |> 
         mutate(type = 'Seed dispersion', 
