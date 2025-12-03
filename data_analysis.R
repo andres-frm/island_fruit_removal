@@ -185,7 +185,7 @@ cond_effects <- function(posterior,
                   } else {
 
                     tibble(x = x,
-                           y = median(est),
+                           y = est,
                            indx = i)
                   }
                   
@@ -203,10 +203,10 @@ slope_pars <-
     
     env <- ls(globalenv())
 
-    post <- env[grep(posterior, env)]
+    post1 <- env[grep(posterior, env)]
     
     post <-
-      lapply(post, FUN =
+      lapply(post1, FUN =
              function(x) {
                p <- get(x)
                beta <- p$beta[[slope]]
@@ -221,7 +221,10 @@ slope_pars <-
 
     post <- do.call('rbind', post)
     post$`Fruit consumption` <- 
-      c('Seed dispersion', 'Seed predation', 'Frugivory')
+      c('Bird frugivory', 'Seed dispersal', 
+        'Lizard frugivory', 
+        'Seed predation',
+        'Total frugivory')
     post
   }
 
@@ -4490,16 +4493,16 @@ ggsave('figure_3.jpeg', width = 18, height = 18, units = 'cm',
 # error bars
 
 rbind(pivot_longer(post_bush_tot$beta, 'beta_bush') |> 
-        mutate(type = 'Frugivory', 
+        mutate(type = 'Total frugivory', 
                effect = 'Bush cover'),
       pivot_longer(post_bush_bird$beta, 'beta_bush') |> 
-        mutate(type = 'Birds', 
+        mutate(type = 'Bird frugivory', 
                effect = 'Bush cover'),
       pivot_longer(post_bush_lizard$beta, 'beta_bush') |> 
-        mutate(type = 'Lizards', 
+        mutate(type = 'Lizard frugivory', 
                effect = 'Bush cover'),
       pivot_longer(post_bush_disp$beta, 'beta_bush') |> 
-        mutate(type = 'Seed dispersion', 
+        mutate(type = 'Seed dispersal', 
                effect = 'Bush cover'), 
       pivot_longer(post_bush_pred$beta, 'beta_bush') |> 
         mutate(type = 'Seed predation', 
@@ -4530,13 +4533,13 @@ mean(post_bush_pred$beta$beta_bush < 0)
 # categorical effects =================
 
 # Type of island
-#plot_disp_pred_islands <- 
+plot_disp_pred_islands <- 
   rbind(full_join(TI_disp, codes$island_type, 'code') |> 
         mutate(type = 'Seed dispersal'),
         full_join(TI_bird, codes$island_type, 'code') |> 
-          mutate(type = "Birds' seed dispersal"),
+          mutate(type = "Bird frugivory"),
         full_join(TI_lizard, codes$island_type, 'code') |> 
-          mutate(type = "Lizard' seed dispersal"),
+          mutate(type = "Lizard frugivory"),
       full_join(TI_pred, codes$island_type, 'code') |> 
         mutate(type = 'Seed predation')) |> 
   group_by(type, island) |> 
@@ -4563,7 +4566,7 @@ mean(post_bush_pred$beta$beta_bush < 0)
     legend.background = element_blank(),
     legend.position = c(0.24, 0.8),
     legend.box.background = element_blank(), 
-    legend.key.size = unit(2.5, 'mm'), 
+    legend.key.size = unit(3.5, 'mm'), 
     text = element_text(family = 'Times New Roman', size = 9)
   )
 
@@ -4599,221 +4602,9 @@ plot_frugivory_islands <-
   )
 
 
-plot_grid(plot_grid(NULL, 
-                    plot_frugivory_islands, 
-                    plot_disp_pred_islands, 
-                    NULL,
-                    nrow = 1,  
-                    rel_widths = c(0.2, 0.8, 0.8, 0.2), 
-                    labels = c('', '(a)', '(b)', ''), 
-                    label_size = 9, 
-                    label_fontfamily = 'Times New Roman', 
-                    label_fontface = 'plain', 
-                    label_x = 0.16, 
-                    label_y = 0.99), 
-          plot_grid(plot_frugivory_realms, 
-                    plot_disp_pred_realms, 
-                    nrow = 1, 
-                    labels = c('(c)', '(d)'), 
-                    label_size = 9, 
-                    label_fontfamily = 'Times New Roman', 
-                    label_fontface = 'plain', 
-                    label_x = c(0.13, 0.145), 
-                    label_y = 0.99),
-          ncol = 1)
-
-ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units = 'cm')
-
-
-# estimations
-
-# probability among types of islands
-rbind(full_join(TI_tot, codes$island_type, 'code') |> 
-        mutate(type = 'Frugivory'), 
-      full_join(TI_disp, codes$island_type, 'code') |> 
-        mutate(type = 'Dispersion'), 
-      full_join(TI_pred, codes$island_type, 'code') |> 
-        mutate(type = 'Predation')) |> 
-  group_by(type, island) |> 
-  transmute(mu = median(y), 
-            li = quantile(y, 0.025), 
-            ls = quantile(y, 0.975)) |> 
-  unique() 
-
-lapply(1, FUN = 
-         function(x) {
-           
-           d <- list(TI_tot, TI_disp, TI_pred)
-           d <- lapply(d, FUN = 
-                         function(z) {
-                           d <- lapply(1:3, FUN = 
-                                         function(k) {
-                                           z[z$code == k, 'y']
-                                         })
-                           d <- do.call('cbind', d) 
-                           colnames(d) <- codes$island_type$island
-                           d
-                         })
-          
-           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
-           
-           d <- 
-             lapply(d, FUN = 
-                      function(jj) {
-                        
-                        prob <-
-                          lapply(1:3, FUN =
-                                   function(i) {
-                                     df <-
-                                       lapply(1:3, FUN =
-                                                function(j) {
-                                                  p <- mean(jj[[i]] > jj[[j]])
-                                                  dif <- jj[[i]] - jj[[j]]
-                                                  contrast <-
-                                                    paste0('P(', 
-                                                          codes$island_type$island[i],
-                                                          ' > ',
-                                                          codes$island_type$island[j], 
-                                                          ')')
-                                                  
-                                                  tibble(Comparison = contrast,
-                                                         probability = p,
-                                                         contrast = mean(dif),
-                                                         li = quantile(dif, 0.025),
-                                                         ls = quantile(dif, 0.975))
-                                                  
-                                                })
-                                     do.call('rbind', df)
-                                   })
-                        
-                        do.call('rbind', prob)
-                        
-                      })
-           
-           for (i in seq_along(d)) {
-             d[[i]]$type <- names(d)[i]
-           }
-          
-           d <- do.call('rbind', d)
-           
-           d[d$probability != 0, ]
-         })
-
-
-# frugivory among realms
-
-# average probabilities 
-rbind(full_join(realm_tot, codes$real, 'code') |> 
-        mutate(type = 'Frugivory'), 
-      full_join(realm_disp, codes$real, 'code') |> 
-        mutate(type = 'Seed dispersal'), 
-      full_join(realm_pred, codes$real, 'code') |> 
-        mutate(type = 'Seed predation')) |> 
-  group_by(type, island) |> 
-  transmute(mu = median(y), 
-            li = quantile(y, 0.025), 
-            ls = quantile(y, 0.975)) |> 
-  unique() |> print(n = 21)
-
-
-# contrast among realms 
-
-lapply(1, FUN = 
-         function(x) {
-           
-           d <- list(realm_tot, realm_disp, realm_pred)
-           d <- lapply(d, FUN = 
-                         function(z) {
-                           d <- lapply(codes$real$code, FUN = 
-                                         function(k) {
-                                           z[z$code == k, 'y']
-                                         })
-                           d <- do.call('cbind', d) 
-                           colnames(d) <- codes$real$island
-                           d
-                         })
-           
-           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
-           
-           lapply(d, FUN = 
-                    function(z) {
-                      m <- 
-                      sapply(codes$real$code, FUN = 
-                               function(i) {
-                                 sapply(codes$real$code, FUN = 
-                                          function(j) {
-                                            mean(z[[i]] > z[[j]])
-                                          })
-                               })
-                      
-                      dimnames(m) <- list(codes$real$island, 
-                                          codes$real$island)
-                      m[upper.tri(m)] <- NA
-                      m
-                    })
-         })
-
-lapply(1, FUN = 
-         function(x) {
-           
-           d <- list(realm_tot, realm_disp, realm_pred)
-           d <- lapply(d, FUN = 
-                         function(z) {
-                           d <- lapply(codes$real$code, FUN = 
-                                         function(k) {
-                                           z[z$code == k, 'y']
-                                         })
-                           d <- do.call('cbind', d) 
-                           colnames(d) <- codes$real$island
-                           d
-                         })
-           
-           names(d) <- c('Frugivory', 'Dispersion', 'Predation')
-           
-           d <-
-             lapply(d, FUN =
-                      function(jj) {
-
-                        prob <-
-                          lapply(codes$real$code, FUN =
-                                   function(i) {
-                                     df <-
-                                       lapply(codes$real$code, FUN =
-                                                function(j) {
-                                                  p <- mean(jj[[i]] > jj[[j]])
-                                                  dif <- jj[[i]] - jj[[j]]
-                                                  contrast <-
-                                                    paste(codes$real$island[i],
-                                                          codes$real$island[j],
-                                                          sep = ' > ')
-
-                                                  tibble(Comparison = contrast,
-                                                         probability = p,
-                                                         contrast = mean(dif),
-                                                         li = quantile(dif, 0.025),
-                                                         ls = quantile(dif, 0.975))
-
-                                                })
-                                     do.call('rbind', df)
-                                   })
-
-                        do.call('rbind', prob)
-
-                      })
-
-           for (i in seq_along(d)) {
-             d[[i]]$type <- names(d)[i]
-           }
-
-           d <- do.call('rbind', d)
-
-           d[d$probability != 0, ]
-           
-         })[[1]] |> print(n = 200) 
-
 plot_frugivory_realms <- 
-  full_join(realm_tot, codes$real, 'code') |> 
-        mutate(type = 'Frugivory') |> 
+full_join(realm_tot, codes$real, 'code') |> 
+  mutate(type = 'Total frugivory') |> 
   group_by(type, island) |> 
   transmute(mu = median(y), 
             li = quantile(y, 0.025), 
@@ -4844,8 +4635,12 @@ plot_frugivory_realms <-
 
 
 plot_disp_pred_realms <- 
-  rbind(full_join(realm_disp, codes$real, 'code') |> 
-        mutate(type = 'Seed dispersal'), 
+rbind(full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Bird frugivory'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizard frugivory'),
       full_join(realm_pred, codes$real, 'code') |> 
         mutate(type = 'Seed predation')) |> 
   group_by(type, island) |> 
@@ -4857,7 +4652,7 @@ plot_disp_pred_realms <-
   geom_errorbar(width = 0, position = position_dodge(width = 0.5), 
                 linewidth = 1.5, alpha = 0.4) +
   geom_point(position = position_dodge(width = 0.5), size = 2) +
-  scale_color_manual(values = c('#F2C230', '#7A577A')) +
+  scale_color_manual(values = c('#F2C230', '#7A577A', '#8C1F28', '#0897B4')) +
   labs(y = ' ', x = 'Biogeographic realm') +
   theme_classic() +
   theme(
@@ -4875,7 +4670,7 @@ plot_disp_pred_realms <-
     text = element_text(family = 'Times New Roman', size = 9),
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
   )
-  
+
 
 plot_grid(plot_grid(NULL, 
                     plot_frugivory_islands, 
@@ -4904,11 +4699,243 @@ ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units =
 
 
 
+# estimations
+
+# Island coefficients
+
+island_tables <- do.call('rbind', islands_post)
+
+island_tables1 <- split(island_tables, list(island_tables$type_island, 
+                                            island_tables$model))
+
+lapply(island_tables1, FUN = 
+         function(x) {
+           x[order(x$mu, decreasing = T), ]
+         })
+
+island_tables2 <- split(island_tables, 
+                        list(island_tables$realm, 
+                             island_tables$model))
+
+lapply(island_tables2, FUN = 
+         function(x) {
+           x[order(x$mu, decreasing = T), ]
+         })
+
+island_tables2$Australasia$island
+# probability among types of islands
+rbind(full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(TI_bird, codes$island_type, 'code') |> 
+        mutate(type = "Bird frugivory"),
+      full_join(TI_lizard, codes$island_type, 'code') |> 
+        mutate(type = "Lizard frugivory"),
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() 
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(TI_tot, TI_disp, TI_pred, TI_bird, TI_lizard)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(1:3, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$island_type$island
+                           d
+                         })
+          
+           names(d) <- c('Total frugivory', 
+                         'Seed dispersal', 'Seed predation', 
+                         'Bird frugivory', 'Lizard frugivory')
+           
+           d <- 
+             lapply(d, FUN = 
+                      function(jj) {
+                        
+                        prob <-
+                          lapply(1:(3-1), FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply((i+1):3, FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste0('P(', 
+                                                          codes$island_type$island[i],
+                                                          ' > ',
+                                                          codes$island_type$island[j], 
+                                                          ')')
+                                                  
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+                                                  
+                                                })
+                                     do.call('rbind', df)
+                                   })
+                        
+                        do.call('rbind', prob)
+                        
+                      })
+           
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+          
+           d <- do.call('rbind', d)
+           
+           
+           d
+         })[[1]] |> print(n = 29) 
+
+
+# frugivory among realms
+
+# average probabilities 
+rbind(full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Total frugivory'), 
+      full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Bird frugivory'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizard frugivory'),
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> print(n = 40)
+
+
+# contrast among realms 
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(realm_tot, realm_disp, realm_pred, 
+                     realm_bird, realm_lizard)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(codes$real$code, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$real$island
+                           d
+                         })
+           
+           names(d) <- c('Total frugivory', 
+                         'Seed dispersal', 'Seed predation', 
+                         'Bird frugivory', 'Lizard frugivory')
+           
+           lapply(d, FUN = 
+                    function(z) {
+                      
+                      m <- 
+                      sapply(codes$real$code, FUN = 
+                               function(i) {
+                                 sapply(codes$real$code, FUN = 
+                                          function(j) {
+                                            mean(z[[i]] > z[[j]])
+                                          })
+                               })
+                      
+                      dimnames(m) <- list(codes$real$island, 
+                                          codes$real$island)
+                      m[upper.tri(m)] <- NA
+                      m
+                    })
+         })
+
+lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(realm_tot, realm_disp, realm_pred,
+                     realm_bird, realm_lizard)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(codes$real$code, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$real$island
+                           d
+                         })
+           
+           names(d) <- c('Total frugivory', 'Seed dispersal',
+                         'Seed predation', 
+                         'Bird frugivory', 'Lizard frugivory')
+           
+           d <-
+             lapply(d, FUN =
+                      function(jj) {
+
+                        prob <-
+                          lapply(1:(length(codes$real$code)-1), FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply((i+1):length(codes$real$code), 
+                                              FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste('P(', 
+                                                          codes$real$island[i],
+                                                          ' > ',
+                                                          codes$real$island[j],
+                                                          ')',
+                                                          sep = '')
+
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+
+                                                })
+                                     do.call('rbind', df)
+                                   })
+
+                        do.call('rbind', prob)
+
+                      })
+
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+
+           d <- do.call('rbind', d)
+
+           d[d$probability != 0, ]
+           d
+         })[[1]] |> print(n = 200) 
+
+
+
+
 # Continuous variabes ====================
 
 # latitude (mu and CI)
 
-rbind(slope_pars('post_latitude', 'beta_lat') |> 
+all_betas <- 
+  rbind(slope_pars('post_latitude', 'beta_lat') |> 
         mutate(predictor = 'Latitude'), 
       slope_pars('post_isolation', 'beta_I_isolation') |> 
         mutate(predictor = 'Island isolation'), 
@@ -4921,9 +4948,11 @@ rbind(slope_pars('post_latitude', 'beta_lat') |>
       slope_pars('post_nativeV', 'beta_NV') |> 
         mutate(predictor = 'Native vegetation'), 
       slope_pars('post_bush', 'beta_bush') |> 
-        mutate(predictor = 'Bush cover')) |> 
-  print(n = 21)
+        mutate(predictor = 'Bush cover'))
 
+all_betas |> print(n = 35)
+
+# latitude
 
 est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
                                  x_bar = dat$lat,
@@ -4949,6 +4978,13 @@ est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
                                    type = 'averaging',
                                    n = 100)
 
+est_isolation_lizard <- cond_effects(posterior = post_isolation_lizard,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'averaging',
+                                   n = 100)
+
+
 # size of island
 
 est_size_pred <- cond_effects(posterior = post_size_pred,
@@ -4957,7 +4993,13 @@ est_size_pred <- cond_effects(posterior = post_size_pred,
                               type = 'averaging',
                               n = 100)
 
-# landscape ============
+est_size_lizard <- cond_effects(posterior = post_size_lizard,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'averaging',
+                              n = 100)
+
+# landscape ==
 
 # altitude
 
@@ -4977,17 +5019,30 @@ est_alt_disp <- cond_effects(posterior = post_altitude_disp,
                              type = 'averaging',
                              n = 100)
 
-# human footprint
-# *****no effects 
+est_alt_bird <- cond_effects(posterior = post_altitude_bird,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
 
+est_alt_lizard <- cond_effects(posterior = post_altitude_lizard,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+# human footprint
+
+est_foot_bird <- cond_effects(posterior = post_footprint_bird,
+                               x_bar = dat$human_footprint,
+                               slope = 'beta_H_foot',
+                               type = 'averaging',
+                               n = 100)
 
 
 
 # native vegetation
 # ****no effect
-
-
-
 
 # bush cover
 
@@ -5003,30 +5058,69 @@ est_bush_pred <- cond_effects(posterior = post_bush_pred,
                              type = 'averaging',
                              n = 100)
 
-plot_scatter_plot1 <- 
+est_bush_bird <- cond_effects(posterior = post_bush_bird,
+                              x_bar = bush_merge,
+                              slope = 'beta_bush',
+                              type = 'averaging',
+                              n = 100)
+
+plot_scatter_isolation <- 
   rbind(est_isolation_tot |> 
         mutate(var = 'Island isolation', 
-               type = 'Frugivory'), 
+               type = 'Total frugivory'), 
       est_isolation_pred |> 
         mutate(var = 'Island isolation', 
-               type = 'Predation'),
-      est_alt_pred |> 
+               type = 'Seed predation'),
+      est_isolation_lizard |> 
+        mutate(var = 'Island isolation', 
+               type = 'Lizard frugivory')) |> 
+  mutate(x_reverted = mean(d$isolation) + x * sd(d$isolation)) |> 
+  ggplot(aes(x_reverted, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(8, 'Set1')[1:3]) +
+  scale_fill_manual(values = RColorBrewer::brewer.pal(8, 'Set1')[1:3]) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Island isolation (km)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+plot_scatter_altitude <- 
+  rbind(est_alt_pred |> 
         mutate(var = 'Island altitude', 
-               type = 'Predation'), 
+               type = 'Seed predation'), 
+      est_alt_bird |> 
+        mutate(var = 'Island altitude', 
+               type = 'Bird frugivory'), 
+      est_alt_lizard |> 
+        mutate(var = 'Island altitude', 
+               type = 'Lizard frugivory'), 
       est_alt_disp |> 
         mutate(var = 'Island altitude', 
-               type = 'Dispersion'), 
-      est_bush_pred |> 
-        mutate(var = 'Bush cover', 
-               type = 'Predation')) |> 
-  ggplot(aes(x, y, ymin = li, ymax = ls)) +
+               type = 'Seed dispersion')) |> 
+  mutate(x_reverted = mean(d$altitude_m) + x * sd(d$altitude_m)) |> 
+  ggplot(aes(x_reverted, y, ymin = li, ymax = ls)) +
   geom_ribbon(aes(fill = type), alpha = 0.5) +
   geom_line(aes(color = type)) +
-  scale_color_manual(values = c('#F2C230', '#D92525', '#7A577A')) +
-  scale_fill_manual(values = c('#F2C230', '#D92525', '#7A577A')) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", "#377EB8")) +
+  scale_fill_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", "#377EB8")) +
   labs(y = 'P(fruit consumption)', 
-       x = 'z-scores') +
-  facet_wrap(~var, scales = 'free', nrow = 1) +
+       x = 'Altitude (m)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
   theme_classic() +
   theme(
     panel.grid.major = element_blank(),
@@ -5043,21 +5137,53 @@ plot_scatter_plot1 <-
     text = element_text(family = 'Times New Roman', size = 9)
   )
 
-plot_scatter_plot2 <- 
+plot_scatter_bush <- 
+  rbind(est_bush_pred |> 
+        mutate(var = 'Bush cover', 
+               type = 'Seed predation'), 
+      est_bush_bird |> 
+        mutate(var = 'Bush cover', 
+               type = 'Bird frugivory')) |> 
+  mutate(x_revert = mean(d$bush_cover, na.rm = T) + x * 
+           sd(d$bush_cover, na.rm = T))|> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c("#984EA3", "#377EB8")) +
+  scale_fill_manual(values = c("#984EA3", "#377EB8")) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Bush cover (%)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+  
+
+plot_scatter_latitude <- 
   rbind(est_latitude_tot |> 
         mutate(var = 'Latitude', 
-               type = 'Frugivory'), 
-      est_size_pred |> 
-        mutate(var = 'Island size', 
-               type = 'Predation')) |> 
-  ggplot(aes(x, y, ymin = li, ymax = ls)) +
-  geom_ribbon(aes(fill = type), alpha = 0.5) +
-  geom_line(aes(color = type)) +
-  scale_color_manual(values = c('#D92525', '#7A577A')) +
-  scale_fill_manual(values = c('#D92525', '#7A577A')) +
+               type = 'Total frugivory')) |> 
+  mutate(x_revert = mean(d$lat) + x * sd(d$lat))|> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(alpha = 0.5, fill = "#4DAF4A") +
+  geom_line(color = "#4DAF4A") +
+  #scale_color_manual(values = c('#D92525', '#7A577A')) +
+  #scale_fill_manual(values = c('#D92525', '#7A577A')) +
   labs(y = 'P(fruit consumption)', 
-       x = 'z-scores') +
-  facet_wrap(~var, scales = 'free', nrow = 1) +
+       x = 'Latitude') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
   theme_classic() +
   theme(
     panel.grid.major = element_blank(),
@@ -5074,7 +5200,70 @@ plot_scatter_plot2 <-
     text = element_text(family = 'Times New Roman', size = 9)
   )
 
-plot_beta_continuous <- 
+
+plot_scatter_size <- 
+  rbind(est_size_lizard |> 
+        mutate(var = 'Island size', 
+               type = 'Lizard frugivory'), 
+      est_size_pred |> 
+        mutate(var = 'Island size', 
+               type = 'Seed predation')) |> 
+  mutate(x_revert = (mean(d$island_size) + x * sd(d$island_size))) |> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8")) +
+  scale_fill_manual(values = c("#E41A1C", "#377EB8")) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Island size') +
+  labs(y = 'P(fruit consumption)', 
+       x = expression('Island size (km)'^2)) +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+plot_scatter_humanF <- 
+  rbind(est_foot_bird |> 
+        mutate(var = 'Human footprint', 
+               type = 'Bird frugivory')) |> 
+    mutate(x_revert = mean(d$human_footprint) + x * sd(d$human_footprint)) |> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(fill = '#984EA3', alpha = 0.5) +
+  geom_line(color = '#984EA3') +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Human footprint') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    text = element_text(family = 'Times New Roman', size = 9)
+  )
+
+
+all_betas <- 
   rbind(slope_pars('post_latitude', 'beta_lat') |> 
           mutate(predictor = 'Latitude'), 
         slope_pars('post_isolation', 'beta_I_isolation') |> 
@@ -5088,54 +5277,65 @@ plot_beta_continuous <-
         slope_pars('post_nativeV', 'beta_NV') |> 
           mutate(predictor = 'Native   \nvegetation'), 
         slope_pars('post_bush', 'beta_bush') |> 
-          mutate(predictor = 'Bush\ncover')) |> 
+          mutate(predictor = 'Bush\ncover'))
+
+all_betas$significant <- 
+  all_betas$`P(beta > 0)` >= 0.8 | all_betas$`P(beta < 0)` >= 0.8
+
+#"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
+# lizard  predation. total      bird.    'disp
+plot_beta_continuous <- 
+  all_betas |> 
   ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
              color = `Fruit consumption`)) +
   geom_hline(yintercept = 0, linetype = 3) +
   geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
-                linewidth = 1.5, alpha = 0.4) +
-  geom_point(position = position_dodge(width = 0.4), size = 2) +
-  scale_color_manual(values = c('#D92525', '#F2C230', '#7A577A')) +
-  annotate("segment",
-           x = c(1.13, 
-                 4.13, 
-                 4, 
-                 5-0.13, 
-                 5+0.13, 
-                 3+0.13, 
-                 6-0.13), 
-           xend = c(1.13,
-                    4.13, 
-                    4, 
-                    5-0.13, 
-                    5+0.13, 
-                    3+0.13, 
-                    6-0.13), # y
-           y = c(-0.8, 
-                 -0.35, 
-                 -1.1, 
-                 -0.65, 
-                 -0.83, 
-                 -0.87, 
-                 -0.73), 
-           yend = c(-0.5, 
-                    -0.05, 
-                    -0.8, 
-                    -0.35, 
-                    -0.53, 
-                    -0.57, 
-                    -0.43), # x
-           arrow = arrow(type = "closed", 
-                         length = unit(1.5, "mm"),
-                         angle = 30),
-           color = c('#7A577A', 
-                     '#7A577A', 
-                     '#F2C230', 
-                     '#D92525', 
-                     '#7A577A', 
-                     '#7A577A',
-                     '#D92525'),
-           linewidth = 0.5) +
+                linewidth = 1.5, 
+                alpha = ifelse(all_betas$significant, 1, 0.3)) +
+  geom_point(position = position_dodge(width = 0.4), size = 2, 
+             alpha = ifelse(all_betas$significant, 1, 0.3)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", 
+                                "#377EB8", "#4DAF4A")) +
+  # annotate("segment",
+  #          x = c(1.13, 
+  #                4.13, 
+  #                4, 
+  #                5-0.13, 
+  #                5+0.13, 
+  #                3+0.13, 
+  #                6-0.13), 
+  #          xend = c(1.13,
+  #                   4.13, 
+  #                   4, 
+  #                   5-0.13, 
+  #                   5+0.13, 
+  #                   3+0.13, 
+  #                   6-0.13), # y
+  #          y = c(-0.8, 
+  #                -0.35, 
+  #                -1.1, 
+  #                -0.65, 
+  #                -0.83, 
+  #                -0.87, 
+  #                -0.73), 
+  #          yend = c(-0.5, 
+  #                   -0.05, 
+  #                   -0.8, 
+  #                   -0.35, 
+  #                   -0.53, 
+  #                   -0.57, 
+  #                   -0.43), # x
+  #          arrow = arrow(type = "closed", 
+  #                        length = unit(1.5, "mm"),
+  #                        angle = 30),
+  #          color = c('#7A577A', 
+  #                    '#7A577A', 
+  #                    '#F2C230', 
+  #                    '#D92525', 
+  #                    '#7A577A', 
+  #                    '#7A577A',
+  #                    '#D92525'),
+  #          linewidth = 0.5) +
   labs(y = expression(beta), x = 'Predictors') +
   theme_classic() +
   coord_flip() +
@@ -5150,27 +5350,32 @@ plot_beta_continuous <-
     legend.background = element_blank(),
     legend.position = c(0.85, 0.1),
     legend.box.background = element_blank(), 
-    legend.key.size = unit(4, 'mm'), 
+    legend.key.size = unit(3, 'mm'), 
     text = element_text(family = 'Times New Roman', size = 9)
   )
 
+layout2 <- 
+  '
+  aaa
+  aaa
+  bcd
+  fgh
+'
 
-plot_grid(plot_beta_continuous, 
-          plot_grid(plot_scatter_plot1, 
-                    plot_grid(NULL, 
-                              plot_scatter_plot2, 
-                              NULL, 
-                              nrow = 1, 
-                              rel_widths = c(0.2, 0.8, 0.2)), 
-                    nrow = 2), 
-          ncol = 1, 
-          rel_heights = c(0.6, 0.4), 
-          labels = c('(a)', '(b)'), 
-          label_fontface = 'plain', 
-          label_fontfamily = 'Times New Roman', 
-          label_y = c(1, 1.05))
+plot_beta_continuous +
+  plot_scatter_isolation + 
+  plot_scatter_altitude + labs(y = NULL) + 
+  plot_scatter_bush + labs(y = NULL) +
+  plot_scatter_latitude + 
+  plot_scatter_size + labs(y = NULL) + 
+  plot_scatter_humanF + labs(y = NULL) +
+  plot_layout(design = layout2) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+  
 
-ggsave('effects_plot.jpg', width = 10, height = 20, units = 'cm', dpi = 1e3)
+ggsave('effects_plot.jpg', width = 15, height = 22, units = 'cm', dpi = 1e3)
 
 
 sessionInfo()
