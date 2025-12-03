@@ -2,7 +2,7 @@
 
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
-         'cowplot', 'bayesplot'), 
+         'cowplot', 'bayesplot', 'patchwork'), 
        library, character.only = T)
 
 source('functions_mod_diagnostics.r')
@@ -3453,7 +3453,7 @@ mcmc_trace(mod_nativeV_bird$draws(c('alpha',
                                       # 'beta_I_alt', 
                                       # 'beta_I_alt',
                                       # 'beta_temp', 
-                                      'beta_NV',
+                                      'beta_NV'
                                       # 'beta_bush', 
                                       # 'inv_rank', 
 )))
@@ -3554,7 +3554,7 @@ mcmc_trace(mod_nativeV_lizard$draws(c('alpha',
                                       # 'beta_I_alt', 
                                       # 'beta_I_alt',
                                       # 'beta_temp', 
-                                      'beta_NV',
+                                      'beta_NV'
                                       # 'beta_bush', 
                                       # 'inv_rank', 
                                       )))
@@ -3644,7 +3644,9 @@ mod_nativeV_pred <-
     seed = 23061993
   )
 
-mod_nativeV_pred$save_object('mod_nativeV_pred.rds')
+# mod_nativeV_pred$save_object('mod_nativeV_pred.rds')
+
+mod_nativeV_pred <- readRDS('mod_nativeV_pred.rds')
 
 sum_nativeV_pred <- mod_nativeV_pred$summary()
 mod_diagnostics(mod_nativeV_pred, sum_nativeV_pred)
@@ -3658,7 +3660,7 @@ mcmc_trace(mod_nativeV_pred$draws(c('alpha',
                                       # 'beta_I_alt', 
                                       # 'beta_I_alt',
                                       # 'beta_temp', 
-                                      'beta_NV',
+                                      'beta_NV'
                                       # 'beta_bush', 
                                       # 'inv_rank', 
 )))
@@ -3738,6 +3740,12 @@ names(post_nativeV_pred) <- c('alpha',
 rbind(pivot_longer(post_nativeV_tot$beta, 'beta_NV') |> 
         mutate(type = 'Frugivory', 
                effect = 'Native cover'), 
+      pivot_longer(post_nativeV_bird$beta, 'beta_NV') |> 
+        mutate(type = 'Birds', 
+               effect = 'Native cover'), 
+      pivot_longer(post_nativeV_lizard$beta, 'beta_NV') |> 
+        mutate(type = 'Lizards', 
+               effect = 'Native cover'), 
       pivot_longer(post_nativeV_disp$beta, 'beta_NV') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Native cover'), 
@@ -3788,6 +3796,10 @@ mod_bush_tot <-
     thin = 3, 
     seed = 23061993
   )
+
+# mod_bush_tot$save_object('mod_bush_tot.rds')
+
+mod_bush_tot <- readRDS('mod_bush_tot.rds')
 
 sum_bush_tot <- mod_bush_tot$summary()
 mod_diagnostics(mod_bush_tot, sum_bush_tot)
@@ -3874,6 +3886,10 @@ mod_bush_disp <-
     seed = 23061993
   )
 
+# mod_bush_disp$save_object('mod_bush_dip.rds')
+
+mod_bush_disp <- readRDS('mod_bush_dip.rds')
+
 sum_bush_disp <- mod_bush_disp$summary()
 mod_diagnostics(mod_bush_disp, sum_bush_disp)
 ppcheck_bush_disp <- mod_bush_disp$draws('ppcheck', format = 'matrix')
@@ -3941,6 +3957,184 @@ names(post_bush_disp) <- c('alpha',
                               'p_ecoR', 'p_biome')
 
 
+# =============== Birds  ======================
+
+file <- paste0(getwd(), '/mod_bush_bird.stan')
+fit_bush_bird <- cmdstan_model(file, compile = T)
+
+mod_bush_bird <- 
+  fit_bush_bird$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+mod_bush_bird$save_object('mod_bush_bird.rds')
+
+mod_bush_bird <- readRDS('mod_bush_bird.rds')
+
+sum_bush_bird <- mod_bush_bird$summary()
+mod_diagnostics(mod_bush_bird, sum_bush_bird)
+ppcheck_bush_bird <- mod_bush_bird$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Bird), main = '', 
+     xlab = 'Bird seed dispersal', ylim = c(0, 3))
+for (i in 1:200) lines(density(ppcheck_bush_bird[i, ], lwd = 0.1))
+lines(density(dat$Bird), lwd = 2, col = 'red')
+
+post_bush_bird <- 
+  mod_bush_bird$draws(c('alpha', 
+                        # 'beta_lat', 
+                        # 'beta_H_pop', 
+                        #'beta_H_foot',
+                        # 'beta_I_mainland', 
+                        # 'beta_I_bush',
+                        # 'beta_I_alt', 
+                        # 'beta_I_alt',
+                        # 'beta_temp', 
+                        # 'beta_NV',
+                        'beta_bush',
+                        # 'inv_rank', 
+                        'TI', 'p_island', 
+                        'p_country', 'p_grid', 
+                        'p_plant', 'p_realm', 
+                        'p_ecoR', 'p_biome'), 
+                      format = 'df')
+
+post_bush_bird <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_bush',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           'beta_bush',
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_bush_bird[, grep(x, colnames(post_bush_bird))]
+           })
+
+names(post_bush_bird) <- c('alpha', 
+                           'beta', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_bush',
+                           # 'beta_I_alt', 
+                           # 'beta_I_bush',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome')
+
+
+
+# =============== Lizards  ======================
+
+file <- paste0(getwd(), '/mod_bush_lizard.stan')
+fit_bush_lizard <- cmdstan_model(file, compile = T)
+
+mod_bush_lizard <- 
+  fit_bush_lizard$sample(
+    data = dat, 
+    chains = 4,
+    parallel_chains = 4,
+    iter_warmup = 500, 
+    iter_sampling = 2e3,
+    thin = 3, 
+    seed = 23061993
+  )
+
+
+mod_bush_lizard$save_object('mod_bush_lizard.rds')
+mod_bush_lizard <- readRDS('mod_bush_lizard.rds')
+
+sum_bush_lizard <- mod_bush_lizard$summary()
+mod_diagnostics(mod_bush_lizard, sum_bush_lizard)
+ppcheck_bush_lizard <- mod_bush_lizard$draws('ppcheck', format = 'matrix')
+
+plot(density(dat$Lizard), main = '', 
+     xlab = 'Lizard seed dispersion', ylim = c(0, 6))
+for (i in 1:200) lines(density(ppcheck_bush_lizard[i, ], lwd = 0.1))
+lines(density(dat$Lizard), lwd = 2, col = 'red')
+
+post_bush_lizard <- 
+  mod_bush_lizard$draws(c('alpha', 
+                        # 'beta_lat', 
+                        # 'beta_H_pop', 
+                        #'beta_H_foot',
+                        # 'beta_I_mainland', 
+                        # 'beta_I_bush',
+                        # 'beta_I_alt', 
+                        # 'beta_I_alt',
+                        # 'beta_temp', 
+                        # 'beta_NV',
+                        'beta_bush',
+                        # 'inv_rank', 
+                        'TI', 'p_island', 
+                        'p_country', 'p_grid', 
+                        'p_plant', 'p_realm', 
+                        'p_ecoR', 'p_biome'), 
+                      format = 'df')
+
+post_bush_lizard <- 
+  lapply(c('alpha', 
+           #'beta_lat', 
+           # 'beta_H_pop', 
+           # 'beta_H_foot',
+           # 'beta_I_mainland', 
+           # 'beta_I_bush',
+           # 'beta_I_alt', 
+           # 'beta_I_alt',
+           # 'beta_temp', 
+           # 'beta_NV',
+           'beta_bush',
+           # 'inv_rank', 
+           'TI', 'p_island', 
+           'p_country', 'p_grid', 
+           'p_plant', 'p_realm', 
+           'p_ecoR', 'p_biome'), FUN = 
+           function(x) {
+             post_bush_lizard[, grep(x, colnames(post_bush_lizard))]
+           })
+
+names(post_bush_lizard) <- c('alpha', 
+                           'beta', 
+                           # 'beta_H_pop', 
+                           # 'beta_H_foot',
+                           # 'beta_I_mainland', 
+                           # 'beta_I_bush',
+                           # 'beta_I_alt', 
+                           # 'beta_I_bush',
+                           # 'beta_temp', 
+                           # 'beta_NV',
+                           # 'beta_bush', 
+                           # 'inv_rank', 
+                           'TI', 'p_island', 
+                           'p_country', 'p_grid', 
+                           'p_plant', 'p_realm', 
+                           'p_ecoR', 'p_biome')
+
+
+
+
+
 
 # =============== Fruit predation  ======================
 
@@ -3957,6 +4151,9 @@ mod_bush_pred <-
     thin = 3, 
     seed = 23061993
   )
+
+# mod_bush_pred$save_object('mod_bush_pred.rds')
+mod_bush_pred <- readRDS('mod_bush_pred.rds')
 
 sum_bush_pred <- mod_bush_pred$summary()
 mod_diagnostics(mod_bush_pred, sum_bush_pred)
@@ -4025,19 +4222,282 @@ names(post_bush_pred) <- c('alpha',
                               'p_plant', 'p_realm', 
                               'p_ecoR', 'p_biome')
 
-mod_bush_tot$save_object('mod_bush_tot.rds')
-mod_bush_disp$save_object('mod_bush_dip.rds')
-mod_bush_pred$save_object('mod_bush_pred.rds')
 
 # ======= Plots =====
-# 
+
+rm(list = ls()[grep('ppcheck', ls())])
+
+# error bars (island level)
+average_effects
+codes$island 
+
+islands_post <- 
+  lapply(ls()[grep('^post_latit', ls())], FUN = 
+         function(x) {
+           
+           posterior <- get(x)
+           
+           est1 <- 
+             lapply(codes$island$code, FUN =
+                      function(i) {
+                        
+                        indx_xvar <- which(dat$island == i)
+                        indx_realm <- unique(dat$realm[indx_xvar])
+                        indx_count <- unique(dat$country[indx_xvar])
+                        indx_typeI <- unique(dat$island_type[indx_xvar])
+                        indx_grid <- unique(dat$grid[indx_xvar])
+                        indx_plant <- unique(dat$plant_ID[indx_xvar])
+                        indx_ecoR <- unique(dat$ecoregion[indx_xvar])
+                        indx_biome <- unique(dat$biome[indx_xvar])
+                        
+                        island <- codes$island
+                        realm <- codes$real
+                        ty_is <- codes$island_type
+                        
+                        lab_island <- island[island$code == i, ]$island
+                        lab_realm <- realm[realm$code == indx_realm, ]$island
+                        lab_TI <- ty_is[ty_is$code == indx_typeI, ]$island
+                        
+                        est <-
+                          with(posterior,
+                               {
+                                 inv_logit(alpha$alpha +
+                                             p_island[, i, drop = T] +
+                                             TI[, indx_typeI, drop = T] +
+                                             p_realm[, indx_realm, drop = T] +
+                                             p_country[, indx_count, drop = T] +
+                                             apply(p_grid[, indx_grid], 1, median) +
+                                             apply(p_plant[, indx_plant], 1, median) +
+                                             apply(p_ecoR[, indx_ecoR], 1, median) +
+                                             apply(p_biome[, indx_biome], 1, median)
+                                           )
+                               })
+                        
+                        print(i)
+                        
+                        tibble(mu = median(est),
+                               li = quantile(est, 0.025),
+                               ls = quantile(est, 0.975),
+                               island = lab_island,
+                               type_island = lab_TI,
+                               realm = lab_realm,
+                               modelo = gsub('^(post_latitude_)(.*)$',
+                                             '\\2', x))
+
+                      })
+           
+           do.call('rbind', est1)
+
+         })
+
+names(islands_post) <- ls()[grep('^post_latit', ls())]
+
+islands_post <- 
+  lapply(seq_along(islands_post), FUN = 
+         function(x) {
+           d <- islands_post[[x]]
+           d$model <- c('Bird frugivory', 
+                        'Seed dispersal', 'Lizard frugivory', 
+                        'Seed predation', 
+                         'Total frugivory')[[x]]
+           d
+         })
+
+names(islands_post) <- ls()[grep('^post_latit', ls())]
+
+
+plots_islands_realm <- 
+  lapply(islands_post, FUN = 
+           function(x) {
+             ggplot(data = x, 
+                    aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+                        ymin = li, ymax = ls, 
+                        color = realm)) +
+               labs(y = 'P(fruit consumption)', x = 'Islands') +
+               geom_hline(yintercept = 0.5, linetype = 3) +
+               geom_errorbar(width = 0, linewidth = 1, alpha = 0.6) +
+               scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+               geom_point(size = 0.5) +
+               theme_classic() +
+               facet_wrap(~model) +
+               theme(axis.text.x = element_blank(), 
+                     legend.title = element_blank(), 
+                     legend.position = c(0.15, 0.8), 
+                     legend.box.background = element_blank(), 
+                     legend.key.size = unit(4, 'mm'),
+                     text = element_text(family = 'Times New Roman'),
+                     strip.background = element_blank(), 
+                     axis.line = element_line(linewidth = 0.25), 
+                     axis.ticks = element_line(linewidth = 0.25))
+           })
+
+
+plots_islands_realm$post_latitude_disp <- 
+  plots_islands_realm$post_latitude_disp +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_pred <- 
+  plots_islands_realm$post_latitude_pred +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_bird <- 
+  plots_islands_realm$post_latitude_bird +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_lizard <- 
+  plots_islands_realm$post_latitude_lizard +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_tot <- 
+  ggplot(data = islands_post$post_latitude_tot, 
+         aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+             ymin = li, ymax = ls, 
+             color = realm)) +
+  labs(y = 'P(fruit consumption)', x = NULL) +
+  geom_hline(yintercept = 0.5, linetype = 3) +
+  geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+  geom_point(size = 1.5) +
+  theme_classic() +
+  facet_wrap(~model) +
+  theme(axis.text.x = element_blank(), legend.title = element_blank(), 
+        legend.position = c(0.15, 0.85), 
+        legend.box.background = element_blank(), 
+        legend.key.size = unit(4, 'mm'),
+        text = element_text(family = 'Times New Roman'),
+        strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.25), 
+        axis.ticks = element_line(linewidth = 0.25))
+
+
+
+layout <- 
+  '
+  aab
+  aac
+  de#
+'
+
+plots_islands_realm$post_latitude_tot + 
+  plots_islands_realm$post_latitude_disp +
+  plots_islands_realm$post_latitude_pred +
+  plots_islands_realm$post_latitude_bird +
+  plots_islands_realm$post_latitude_lizard +
+  plot_layout(design = layout, labels) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+
+ggsave('figure_2.jpeg', width = 18, height = 18, units = 'cm', 
+       dpi = 500)
+
+
+plots_islands_type <- 
+  lapply(islands_post, FUN = 
+           function(x) {
+             ggplot(data = x, 
+                    aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+                        ymin = li, ymax = ls, 
+                        color = type_island)) +
+               labs(y = 'P(fruit consumption)', x = 'Islands') +
+               geom_hline(yintercept = 0.5, linetype = 3) +
+               geom_errorbar(width = 0, linewidth = 1, alpha = 0.6) +
+               scale_color_manual(values = 
+                                    RColorBrewer::brewer.pal(3, "Accent")) +
+               geom_point(size = 0.5) +
+               theme_classic() +
+               facet_wrap(~model) +
+               theme(axis.text.x = element_blank(), 
+                     legend.title = element_blank(), 
+                     legend.position = c(0.15, 0.8), 
+                     legend.box.background = element_blank(), 
+                     legend.key.size = unit(4, 'mm'),
+                     text = element_text(family = 'Times New Roman'),
+                     strip.background = element_blank(), 
+                     axis.line = element_line(linewidth = 0.25), 
+                     axis.ticks = element_line(linewidth = 0.25))
+           })
+
+
+plots_islands_type$post_latitude_disp <- 
+  plots_islands_type$post_latitude_disp +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_pred <- 
+  plots_islands_type$post_latitude_pred +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_bird <- 
+  plots_islands_type$post_latitude_bird +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_lizard <- 
+  plots_islands_type$post_latitude_lizard +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_tot <- 
+  ggplot(data = islands_post$post_latitude_tot, 
+         aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+             ymin = li, ymax = ls, 
+             color = type_island)) +
+  labs(y = 'P(fruit consumption)', x = NULL) +
+  geom_hline(yintercept = 0.5, linetype = 3) +
+  geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+  geom_point(size = 1.5) +
+  theme_classic() +
+  facet_wrap(~model) +
+  theme(axis.text.x = element_blank(), legend.title = element_blank(), 
+        legend.position = c(0.15, 0.9), 
+        legend.box.background = element_blank(), 
+        legend.key.size = unit(4, 'mm'),
+        text = element_text(family = 'Times New Roman'),
+        strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.25), 
+        axis.ticks = element_line(linewidth = 0.25))
+
+
+plots_islands_type$post_latitude_tot + 
+  plots_islands_type$post_latitude_disp +
+  plots_islands_type$post_latitude_pred +
+  plots_islands_type$post_latitude_bird +
+  plots_islands_type$post_latitude_lizard +
+  plot_layout(design = layout, labels) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+
+ggsave('figure_3.jpeg', width = 18, height = 18, units = 'cm', 
+       dpi = 500)
+
+
 # ============= Slops ===========
 
 # error bars
 
 rbind(pivot_longer(post_bush_tot$beta, 'beta_bush') |> 
         mutate(type = 'Frugivory', 
-               effect = 'Bush cover'), 
+               effect = 'Bush cover'),
+      pivot_longer(post_bush_bird$beta, 'beta_bush') |> 
+        mutate(type = 'Birds', 
+               effect = 'Bush cover'),
+      pivot_longer(post_bush_lizard$beta, 'beta_bush') |> 
+        mutate(type = 'Lizards', 
+               effect = 'Bush cover'),
       pivot_longer(post_bush_disp$beta, 'beta_bush') |> 
         mutate(type = 'Seed dispersion', 
                effect = 'Bush cover'), 
@@ -4070,11 +4530,15 @@ mean(post_bush_pred$beta$beta_bush < 0)
 # categorical effects =================
 
 # Type of island
-plot_disp_pred_islands <- 
+#plot_disp_pred_islands <- 
   rbind(full_join(TI_disp, codes$island_type, 'code') |> 
-        mutate(type = 'Dispersion'), 
+        mutate(type = 'Seed dispersal'),
+        full_join(TI_bird, codes$island_type, 'code') |> 
+          mutate(type = "Birds' seed dispersal"),
+        full_join(TI_lizard, codes$island_type, 'code') |> 
+          mutate(type = "Lizard' seed dispersal"),
       full_join(TI_pred, codes$island_type, 'code') |> 
-        mutate(type = 'Predation')) |> 
+        mutate(type = 'Seed predation')) |> 
   group_by(type, island) |> 
   transmute(mu = median(y), 
             li = quantile(y, 0.025), 
@@ -4084,7 +4548,7 @@ plot_disp_pred_islands <-
   geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
                 linewidth = 1.5, alpha = 0.4) +
   geom_point(position = position_dodge(width = 0.4), size = 2) +
-  scale_color_manual(values = c('#F2C230', '#7A577A')) +
+  scale_color_manual(values = c('#F2C230', '#7A577A', '#8C1F28', '#0897B4')) +
   scale_x_discrete(labels = c('Continental', 'Coralline', 'Volcanic')) +
   labs(y = ' ', x = 'Type of island') +
   theme_classic() +
