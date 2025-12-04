@@ -39,7 +39,7 @@ code-copy: true
 
 # S1. Introduction
 
-This document holds data wrangling operations for fixing minor errors of the raw data set, calculating matrix od distances among islands, coding indexes of categorical variables and not available observations (i.e., `NA`), and formatting the entire data set to be used with the `cmdstanr` `R` package.
+This document holds data wrangling operations for fixing minor errors of the raw data set, calculating matrix of distances among islands, coding indexes of categorical variables and not available observations (i.e., `NA`), and formatting the entire data set to be used with the `cmdstanr` `R` package.
 
 # S2. Loading packages
 
