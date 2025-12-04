@@ -144,6 +144,15 @@ cond_effects <- function(posterior,
   
   x_seq <- seq(min(x_bar), max(x_bar), length.out = n)
   
+  type_is <- apply(posterior$TI, 1, mean)
+  island <- apply(posterior$p_island, 1, mean)
+  country <- apply(posterior$p_country, 1, mean)
+  grid <- apply(posterior$p_grid, 1, mean)
+  plant <- apply(posterior$p_plant, 1, mean)
+  realm <- apply(posterior$p_realm, 1, mean)
+  eco <- apply(posterior$p_ecoR, 1, mean)
+  biome <- apply(posterior$p_biome, 1, mean)
+  
   y <- lapply(seq_along(x_seq), FUN = 
                 function(i) {
                   
@@ -154,14 +163,14 @@ cond_effects <- function(posterior,
                          {
                            inv_logit(alpha[[1]] +
                                        beta[[slope]] * x +
-                                       apply(TI, 1, mean) +
-                                       apply(p_island, 1, mean) +
-                                       apply(p_country, 1, mean) +
-                                       apply(p_grid, 1, mean) +
-                                       apply(p_plant, 1, mean) +
-                                       apply(p_realm, 1, mean) +
-                                       apply(p_ecoR, 1, mean) +
-                                       apply(p_biome, 1, mean))
+                                       type_is +
+                                       island +
+                                       country +
+                                       grid +
+                                       plant +
+                                       realm +
+                                       eco +
+                                       biome)
                          })
                   
                   if (type == 'averaging') {
@@ -169,9 +178,9 @@ cond_effects <- function(posterior,
                            y = median(est),
                            li = quantile(est, 0.025),
                            ls = quantile(est, 0.975))
-
+                    
                   } else if (type == 'random') {
-
+                    
                     set.seed(23061993)
                     est <- sample(est, 100, replace = F)
                     pred <- rbinom(length(est), 15, est)
@@ -181,9 +190,9 @@ cond_effects <- function(posterior,
                            ls = quantile(pred, 0.975),
                            indx = i,
                            type = 'Predicted')
-
+                    
                   } else {
-
+                    
                     tibble(x = x,
                            y = est,
                            indx = i)
@@ -281,7 +290,7 @@ ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$total_remotion), main = '', 
      xlab = 'Total fruits removal', ylim = c(0, 0.1))
-for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ], lwd = 0.1))
+for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ]), lwd = 0.1)
 lines(density(dat$total_remotion), lwd = 2, col = 'red')
 
 
@@ -2218,7 +2227,7 @@ mod_altitude_disp <-
     seed = 23061993
   )
 
-# mod_altitude_disp$save_object('mod_altitude_disp.rds')
+mod_altitude_disp$save_object('mod_altitude_disp.rds')
 
 mod_altitude_disp <- readRDS('mod_altitude_disp.rds')
 
