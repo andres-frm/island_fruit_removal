@@ -6,11 +6,6 @@ format:
   pdf: 
     include-in-header:
       text: |
-        \renewcommand{\thesection}{S\arabic{section}}
-        \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
-        \renewcommand{\thefigure}{S\arabic{figure}}
-        \renewcommand{\thetable}{S\arabic{table}}
-        \renewcommand{\thesection}{S\arabic{section}}
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
         \renewcommand{\thefigure}{S\arabic{figure}}
         \renewcommand{\thetable}{S\arabic{table}}
@@ -39,12 +34,78 @@ code-copy: true
 
 # S1. Introduction
 
-This document presents the data-generating process, explaining how biogeographical, regional, and local factors affect the probability of fruit removal across worldwide islands. Specifically, we provide a directed acyclic graph (DAG) that captures the hypothesized interdependencies among variables, including the rationale for each causal association. We use part of the DAG to simulate a synthetic data set, recreating the structure of our data and a simplified version of the generative model. Finally, we present models fitted to the simulated data, a crucial step for verifying that it is well-specified and can recover the 'true' parameters. 
+This document contain two main sections: (i) detailed protocol for conducting the experiment of fruit removal, and (ii) the simulation of data-generating process, explaining how biogeographical, regional, and local factors affect the probability of fruit removal across worldwide islands. Specifically, we provide a directed acyclic graph (DAG) that captures the hypothesized interdependencies among variables, including the rationale for each causal association. We use part of the DAG to simulate a synthetic data set, recreating the structure of our data and a simplified version of the generative model. Finally, we present models fitted to the simulated data, a crucial step for verifying that it is well-specified and can recover the 'true' parameters. 
 
 
+# S2. Protocols for data collections
+
+## Fruit removal experiments
+
+In this project, we will use **artificial non-toxic plasticine red fruits** (Alves-Costa and Lopes 2001) to test the
+effects of macro and microecological drivers on fruit removal at a global scale. We will focus on islands,
+regarded as the most fragile ecosystems on Earth where 80% of the reported extinctions globally has happen
+(Whittaker et al. 2017). It is urgent to assess the magnitude of frugivore loss worldwide to foresee the
+consequences for island biodiversity maintenance and the ecosystem services provided by seed dispersal (Bello
+et al. 2015, Egerer et al. 2018). \underline{Plasticine clays can be eaten by birds (and other animals including humans) with
+no harm}.
+
+![A contrast between artificial clay fruit models and natural animal-dispersed fruits](figures/comparison_fruits.png)
 
 
-# S2. Data-generating process
+### Macroecological variables
+- Island Size (ha)
+- Island Isolation: measured as the total land area within a buffer zone around the island. Note that the land area of the island being analysed was not included in this calculation. As such, this variable measures the land mass of other islands or mainland nearby the main island. We estimated this variable using two buffer zone sizes: 500-km width (main analyses) and 1000-km width (supplementary analyses).
+- Distance from the largest land mass: measured as the shortest Haversine (i.e., great circle) distance (km) between the island and the mainland. Note that some islands (e.g., New Guinea, New Zealand) have a distance of zero because they are considered as being mainland.
+- Island Type (Continental, Volcanic or Limestone)
+- Latitude
+- Bioregion (Holt et al. 2013)
+
+### Local Variables
+
+- Altitude (m) where the experimental grids are deployed
+- Human population: calculated as the mean population density of the island. We used the Population Density v4.11 global raster at a 30 arc-second horizontal resolution (available at <https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-density-rev11/data-download>). We calculated the average population density considering all the cells that overlapped the island. We extracted population density values using the extract function from the raster package.
+- Natural vegetation cover of the island (%)
+- Ranking of exotic vegetation in the experimental grid (1-3, 1 none, 2 medium (some sparce exotic species),
+3 dominated by exotic plant species)
+- Canopy cover (%) of the fruiting plants in the experiment (it was measured using https://percentagecover.com)
+- Mean temperature of the days that the experiment was deployed (Celsius).
+
+### Sampling locations
+
+To maximize the power to detect effects of island biogeography (size, isolation, age), latitudinal and altitudinal gradient, we are aiming for wide spread of sites across latitudes, defaunation status, island sizes and isolation. Our primary criterion for site selection was “naturalness”. Therefore, we ask each researcher to establish plots in a range of disturbances (but not urban areas or gardens).
+
+The site used to place the grid should be subject to a range of minimal disturbance to sites more disturbed (but not gardens or urban areas). Some sites are known to be dominated by invasive species, some are not, but we avoided installing the experiments on edges of large, paved roads. Each grid (0.5 ha) should was installed in different, representative habitats (one per habitat). 
+
+We were not restricted to sites of a particular vegetation type, because we consider vegetation changes with latitude to be an ecologically important global pattern, which is likely to influence global patterns in frugivory, bird densities, and fruit removal. Thus, we aimed to establish sites in the most abundant natural vegetation type in each area, but also in invasive-dominated habitats. We aimed to capture variation in vegetation types that reflects the actual range of environmental conditions where animal-fruit interactions occur on each island.
+
+To provide a standardized fruit, we modeled artificial fruits (10 mm diameter) from **non-toxic red plasticine clay** to resemble a typical bird-dispersed fruit (Alves-Costa and Lopes 2001). This type of fruit was chosen as it represents the most abundant group of fleshy fruit found throughout the world. Small marks (such as marks from fingernails) should be smoothed over. We used Plastilina (modelling clay) and sculpturing wire (see Figure S2) to install the fruits. We tested experimentally fruit fate by installing artificial fruits within 3-5 grids in which each grid encompasses an area of approximately 0.5 ha (100 x 50m). In each grid, we selected 12 separate understory bushes with ~1.5-2m height. Then for each bush, we installed 15 red plasticine fruits at about 1 m height. Each fruit should be placed between 5-30 cm from each other. Therefore, each grid will have 180 red plasticine fruits deployed evenly among 12 bushes (or a density of 3.6 fruits/100 $m^2$).
+
+![How to deploy the red artificial fruits in the bushes and a detail of a artificial fruit attached to the
+truck by a wire.](figures/bush_fruits.jpg)
+
+### Setting the experiment step-by-step
+
+:::{}
+
+1.  Installing the experiment around the main fruiting season of the island location.
+2.  Selecting a suitable location in the island to place 3 to 5 grids (100 x 50 m) depending on the
+size of the island. Each grid was spaced at least 500 m from each other to cover different vegetation types.
+
+![Experimental design and dimensions (100 x 50 m) of one of the grid and bushes disposition](figures/exp_desing.png)
+
+3.  We selected 12 naturally growing 1.5-2 m tall bushes inside the grid, avoid installing artificial fruits in bushes with natural fruits.
+
+4.  We installed 15 red plasticine fruits in 12 bushes, guaranteeing the fruits can be accessible to all kinds of birds, or arboreal lizards. Thus, the fruits were be placed in terminal branches mimicking a fruiting species. Each bush was spaced between 10-30 m in a grid system, so the density of fruits per grid was be 180 fruits/0.5 ha.
+
+5.  We collect for each bush, latitude, and longitude with GPS (in UTM and using WGS84 Datum) and canopy cover (with the APP - https://percentagecover.com).
+
+6.  We returned to the grid after 72 h and checked the marks of the frugivores (birds, mammals, lizards, arthropods, or unknown; Figure S4) on the artificial fruits. Fallen fruits were also checked and if we cannot find any mark, it was considerated as intact. We also recorded the number of missing fruits.
+
+![Characteristic attack marks of birds (1-9), mammals (10-13), invertebrates (14-16)(Photos Rafael Souza).](figures/fruit_marks.png)
+
+:::
+
+# S3. Data-generating process
 
 
 ![A directed acyclic graph denoting the data-generating processes explaining how biogeographical, regional, and local factors affect the probability of fruit removal in worldwide islands.](figures/DAG_islands.png)
@@ -53,7 +114,7 @@ This document presents the data-generating process, explaining how biogeographic
 The geological or biological – in the case of coraline formations – origin of the islands defines their type, which in turn encompasses the patterns of isolation, size, and altitude of the islands. Indeed, island traits likely shape the characteristics of their biological communities and the ways humans have impacted them. For instance, biodiversity patterns on islands can be influenced by proximity to the continental mainland or island size. The same traits can have determined historic human colonization processes and current impacts on native ecosystems. Thus, although some of those effects may not be linear due to the consequences of human technology —for instance, overcoming island isolation — we believe the causal structure in the previous Figure S1 remains plausible. Together, these factors may shape the probability of fruit removal directly or indirectly through other predictors.
 
 
-# S3. Simulation of synthetic data 
+# S4. Simulation of synthetic data 
 
 We focused on one part of the previous data-generative processes:
 
@@ -332,7 +393,7 @@ plot(density(sim_data$fruit_removal), main = '',
 
 ```
 
-# S4. Models
+# S5. Models
 
 All models preserve the same structure with respect to random effects and correlated islands, but they differ in the adjustment set of predictors that should be included to detect the correct causal effect. Thus, we present the overall mathematical notation for all models here, whereas the specific adjustment sets for the models will be provided below. 
 
@@ -377,7 +438,7 @@ $$
 \end{aligned}
 $$
 
-# S5. Effect of altitude
+# S6. Effect of altitude
 
 ![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_altitude.png)
 
@@ -749,7 +810,7 @@ plot(density(posterior_pars$beta_alt$beta_alt),
 abline(v = beta_alt, col = 'red', lwd = 2)
 ```
 
-# S6. Effect type of island
+# S7. Effect type of island
 
 ![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_type_island.png)
 
@@ -1091,7 +1152,7 @@ compare_posterior(posterior_pars$TI,
 ```
 
 
-# S7. Effect of island isolation
+# S8. Effect of island isolation
 
 ![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_isolation.png)
 
@@ -1438,7 +1499,7 @@ abline(v = beta_tot_isolation, col = 'red', lwd = 2)
 ```
 
 
-# S8. Effect of bush cover
+# S9. Effect of bush cover
 
 ![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_bush.png)
 
@@ -1784,7 +1845,7 @@ abline(v = beta_bush, col = 'red', lwd = 2)
 ```
 
 
-# S9. Effect of native vegetation
+# S10. Effect of native vegetation
 
 ![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_nativeV.png)
 
@@ -2143,9 +2204,9 @@ par(mfrow = c(1, 1))
 ```
 
 
-# Conclusion 
+# S11 Conclusion 
 
-All models (see sections 5.6, 6.6, 7.6, 8.6 and 9.6) recovered the true parameters of the generative simulation. Indicating that they were well specified and are adequate to detect the target effects.
+All models (see sections 6.6, 7.6, 8.6, 9.6 and 10.6) recovered the true parameters of the generative simulation. Indicating that they were well specified, are adequate to detect the target effects, and are ready to be used with the real data. 
 
 
 
