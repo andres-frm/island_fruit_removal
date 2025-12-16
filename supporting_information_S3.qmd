@@ -6,11 +6,6 @@ format:
   pdf: 
     include-in-header:
       text: |
-        \renewcommand{\thesection}{S\arabic{section}}
-        \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
-        \renewcommand{\thefigure}{S\arabic{figure}}
-        \renewcommand{\thetable}{S\arabic{table}}
-        \renewcommand{\thesection}{S\arabic{section}}
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
         \renewcommand{\thefigure}{S\arabic{figure}}
         \renewcommand{\thetable}{S\arabic{table}}
@@ -49,7 +44,7 @@ Bayesian hierarchical models assesing the causal effect of biogeographical, regi
 
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
-         'cowplot', 'bayesplot', 'patchwork'), 
+         'cowplot', 'bayesplot', 'patchwork', "kableExtra"), 
        library, character.only = T)
 
 ```
@@ -62,6 +57,9 @@ data <- readRDS('data.rds')
 
 codes <- 
   lapply(data$codes, function(x) x[order(x$code), ])
+
+codes$real$island <- c('Afrotropics', 'Australasia', 'Indomalaya', 
+                       'Nearctic', 'Neotropics', 'Oceania', 'Palearctic')
 
 d <- data$data
 dis_matrix <- data$dist_islands
@@ -169,7 +167,7 @@ average_effects <- function(n_levels,
                   indx_plant <- unique(dat$plant_ID[indx_xvar])
                   indx_ecoR <- unique(dat$ecoregion[indx_xvar])
                   indx_biome <- unique(dat$biome[indx_xvar])
-                
+                  
                   est <-
                     with(posterior,
                          {
@@ -204,7 +202,11 @@ cond_effects <- function(posterior,
                          x_bar, 
                          slope, 
                          type = 'averaging', 
-                         n = 100) {
+                         n = 100,
+                         causal_effect = F, 
+                         intervention1,
+                         intervention2
+                         ) {
   
   x_seq <- seq(min(x_bar), max(x_bar), length.out = n)
   
@@ -217,54 +219,93 @@ cond_effects <- function(posterior,
   eco <- apply(posterior$p_ecoR, 1, mean)
   biome <- apply(posterior$p_biome, 1, mean)
   
-  y <- lapply(seq_along(x_seq), FUN = 
-                function(i) {
-                  
-                  x <- x_seq[i]
-                  
-                  est <- 
-                    with(posterior, 
-                         {
-                           inv_logit(alpha[[1]] +
-                                       beta[[slope]] * x +
-                                       type_is +
-                                       island +
-                                       country +
-                                       grid +
-                                       plant +
-                                       realm +
-                                       eco +
-                                       biome)
-                         })
-                  
-                  if (type == 'averaging') {
-                    tibble(x = x,
-                           y = median(est),
-                           li = quantile(est, 0.025),
-                           ls = quantile(est, 0.975))
+  if (causal_effect) {
+    
+    causal_effect <- 
+    lapply(c(intervention1, intervention2), FUN = 
+             function(x) {
+               est <- 
+                 with(posterior, 
+                      {
+                        inv_logit(alpha[[1]] +
+                                    beta[[slope]] * x +
+                                    type_is +
+                                    island +
+                                    country +
+                                    grid +
+                                    plant +
+                                    realm +
+                                    eco +
+                                    biome)
+                      })
+               
+               tibble(x = est)
+             })
+    
+    causal_effect <- do.call('cbind', causal_effect)
+    colnames(causal_effect) <- c('intervention_1', 'intervention_2')
+    causal_effect$contrast <-
+      causal_effect[[2]] - causal_effect[[1]]
+    
+    colnames(causal_effect)[3] <- paste(intervention1, 'SD', 
+                                        '\nvs.', 
+                                        intervention2, 'SD')
 
-                  } else if (type == 'random') {
-
-                    set.seed(23061993)
-                    est <- sample(est, 100, replace = F)
-                    pred <- rbinom(length(est), 15, est)
-                    tibble(x = x,
-                           y = median(pred),
-                           li = quantile(pred, 0.025),
-                           ls = quantile(pred, 0.975),
-                           indx = i,
-                           type = 'Predicted')
-
-                  } else {
-
-                    tibble(x = x,
-                           y = est,
-                           indx = i)
-                  }
-                  
-                })
+    as_tibble(causal_effect)
+    
+  } else {
+    
+    y <- lapply(seq_along(x_seq), FUN = 
+                  function(i) {
+                    
+                    x <- x_seq[i]
+                    
+                    est <- 
+                      with(posterior, 
+                           {
+                             inv_logit(alpha[[1]] +
+                                         beta[[slope]] * x +
+                                         type_is +
+                                         island +
+                                         country +
+                                         grid +
+                                         plant +
+                                         realm +
+                                         eco +
+                                         biome)
+                           })
+                    
+                    if (type == 'averaging') {
+                      tibble(x = x,
+                             y = median(est),
+                             li = quantile(est, 0.025),
+                             ls = quantile(est, 0.975))
+                      
+                    } else if (type == 'random') {
+                      
+                      set.seed(23061993)
+                      est <- sample(est, 100, replace = F)
+                      pred <- rbinom(length(est), 15, est)
+                      tibble(x = x,
+                             y = median(pred),
+                             li = quantile(pred, 0.025),
+                             ls = quantile(pred, 0.975),
+                             indx = i,
+                             type = 'Predicted')
+                      
+                    } else {
+                      
+                      tibble(x = x,
+                             y = est,
+                             indx = i)
+                    }
+                    
+                  })
+    
+    do.call('rbind', y)
+    
+  }
   
-  do.call('rbind', y)
   
 }
 ```
@@ -308,7 +349,7 @@ slope_pars <-
 
 All models preserve the same structure with respect to random effects and correlated islands, but they differ in the adjustment set of predictors that should be included to detect the correct causal effect. Thus, we present the overall mathematical notation for all models here, whereas the specific adjustment sets for the models will be provided below. 
 
-Prior probabilities were defined to encompass plausible values of the response variable on the $logit$ scale. $D$ stands for either $binomial$ or $bernoulli$ probability distributions. Dispersion parameters were parametrized to explore positive values, whereas prior probabilities of slope parameters of *causal effect* and *adjustment set* were defined to explore either positive or negative effects.
+Prior probabilities were defined to encompass plausible values of the response variable on the $logit$ scale. $D$ stands for either $binomial$ or $Bernoulli$ probability distributions. Dispersion parameters were parametrized to explore positive values, whereas prior probabilities of slope parameters of *causal effect* and *adjustment set* were defined to explore either positive or negative effects.
 
 
 \pagebreak
@@ -509,7 +550,7 @@ names(post_latitude_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -651,7 +692,7 @@ names(post_latitude_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -1130,11 +1171,8 @@ mcmc_trace(mod_isolation_tot$draws(c('alpha',
                                      # 'beta_I_size',
                                      # 'beta_I_alt', 
                                      'beta_I_isolation', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome', 
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -1227,7 +1265,7 @@ names(post_isolation_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island isolation}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -1276,11 +1314,8 @@ mcmc_trace(mod_isolation_bird$draws(c('alpha',
                                      # 'beta_I_size',
                                      # 'beta_I_alt', 
                                      'beta_I_isolation', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -1373,7 +1408,7 @@ names(post_isolation_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island isolation}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -1423,11 +1458,8 @@ mcmc_trace(mod_isolation_lizard$draws(c('alpha',
                                      # 'beta_I_size',
                                      # 'beta_I_alt', 
                                      'beta_I_isolation', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -1569,11 +1601,8 @@ mcmc_trace(mod_isolation_disp$draws(c('alpha',
                                      # 'beta_I_size',
                                      # 'beta_I_alt', 
                                      'beta_I_isolation', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -1716,11 +1745,8 @@ mcmc_trace(mod_isolation_pred$draws(c('alpha',
                                      # 'beta_I_size',
                                      # 'beta_I_alt', 
                                      'beta_I_isolation', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -1864,11 +1890,8 @@ mcmc_trace(mod_size_tot$draws(c('alpha',
                                 # 'beta_I_size',
                                 # 'beta_I_alt', 
                                 'beta_I_size', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 # 'beta_temp', 
                                 # 'beta_NV',
                                 # 'beta_bush', 
@@ -1961,7 +1984,7 @@ names(post_size_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island size}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -2010,11 +2033,8 @@ mcmc_trace(mod_size_bird$draws(c('alpha',
                                 # 'beta_I_size',
                                 # 'beta_I_alt', 
                                 'beta_I_size', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 # 'beta_temp', 
                                 # 'beta_NV',
                                 # 'beta_bush', 
@@ -2107,7 +2127,7 @@ names(post_size_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island size}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -2157,11 +2177,8 @@ mcmc_trace(mod_size_lizard$draws(c('alpha',
                                 # 'beta_I_size',
                                 # 'beta_I_alt', 
                                 'beta_I_size', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 # 'beta_temp', 
                                 # 'beta_NV',
                                 # 'beta_bush', 
@@ -2303,11 +2320,8 @@ mcmc_trace(mod_size_tot$draws(c('alpha',
                                 # 'beta_I_size',
                                 # 'beta_I_alt', 
                                 'beta_I_size', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 # 'beta_temp', 
                                 # 'beta_NV',
                                 # 'beta_bush', 
@@ -2451,11 +2465,8 @@ mcmc_trace(mod_size_pred$draws(c('alpha',
                                 # 'beta_I_size',
                                 # 'beta_I_alt', 
                                 'beta_I_size', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 # 'beta_temp', 
                                 # 'beta_NV',
                                 # 'beta_bush', 
@@ -2598,11 +2609,8 @@ mcmc_trace(mod_altitude_tot$draws(c('alpha',
                                 # 'beta_I_mainland', 
                                 # 'beta_I_size',
                                 'beta_I_alt', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 #'beta_I_size'
                                 # 'beta_temp', 
                                 # 'beta_NV',
@@ -2696,741 +2704,7 @@ names(post_altitude_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
-& logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
-& ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
-\\
-& \beta \sim \mathcal{N}(0, 1) \\
-\end{aligned}
-$$
-
-### `Stan` code
-
-Raw `stan` code of the model can be found at the file `mod_size_bird.rds`.
-
-```{r, echo=FALSE}
-mod_altitude_bird <- readRDS('mod_altitude_bird.rds')
-mod_altitude_bird$code()
-```
-
-### MCMC Sampling setup
-
-```{r, eval=FALSE}
-file <- paste0(getwd(), '/mod_altitude_bird.stan')
-fit_altitude_bird <- cmdstan_model(file, compile = T)
-
-mod_altitude_bird <- 
-  fit_altitude_bird$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-```
-
-
-### MCMC diagnostics
-
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
-
-mcmc_trace(mod_altitude_bird$draws(c('alpha', 
-                                     # 'beta_lat', 
-                                     # 'beta_H_pop', 
-                                     # 'beta_H_foot',
-                                     # 'beta_I_mainland', 
-                                     # 'beta_I_altitude',
-                                     # 'beta_I_alt', 
-                                     'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
-                                     # 'beta_temp', 
-                                     # 'beta_NV',
-                                     # 'beta_bush', 
-                                     # 'inv_rank', 
-)))
-```
-
-
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
-par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
-sum_altitude_bird <- mod_altitude_bird$summary()
-mod_diagnostics(mod_altitude_bird, sum_altitude_bird)
-ppcheck_altitude_bird <- mod_altitude_bird$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$Bird), main = '', 
-     xlab = 'Bird frugivory', ylim = c(0, 3))
-for (i in 1:200) lines(density(ppcheck_altitude_bird[i, ]), lwd = 0.1)
-lines(density(dat$Bird), lwd = 2, col = 'red')
-par(mfrow = c(1, 1))
-
-rm('ppcheck_altitude_bird')
-```
-
-### Posterior distributions
-
-```{r}
-post_altitude_bird <- 
-  mod_altitude_bird$draws(c('alpha', 
-                            # 'beta_lat', 
-                            # 'beta_H_pop', 
-                            # 'beta_H_foot',
-                            # 'beta_I_mainland', 
-                            # 'beta_I_altitude',
-                            # 'beta_I_alt', 
-                            'beta_I_alt',
-                            # 'beta_temp', 
-                            # 'beta_NV',
-                            # 'beta_bush', 
-                            # 'inv_rank', 
-                            'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome'), 
-                          format = 'df')
-
-post_altitude_bird <- 
-  lapply(c('alpha', 
-           #'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_altitude',
-           # 'beta_I_alt', 
-           'beta_I_alt',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_bird[, grep(x, colnames(post_altitude_bird))]
-           })
-
-names(post_altitude_bird) <- c('alpha', 
-                               'beta', 
-                               # 'beta_H_pop', 
-                               # 'beta_H_foot',
-                               # 'beta_I_mainland', 
-                               # 'beta_I_altitude',
-                               # 'beta_I_alt', 
-                               # 'beta_I_altitude',
-                               # 'beta_temp', 
-                               # 'beta_NV',
-                               # 'beta_bush', 
-                               # 'inv_rank', 
-                               'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome')
-
-```
-
-
-## Model: Lizard frugivory
-
-### Mathematical notation
-
-$$
-\begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
-& logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
-& ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
-\\
-& \beta \sim \mathcal{N}(0, 1) \\
-\end{aligned}
-$$
-
-### `Stan` code
-
-Raw `stan` code of the model can be found at the file `mod_altitude_lizard.rds`.
-
-```{r, echo=FALSE}
-mod_altitude_lizard <- readRDS('mod_altitude_lizard.rds')
-mod_altitude_lizard$code()
-```
-
-### MCMC Sampling setup
-
-```{r, eval=FALSE}
-file <- paste0(getwd(), '/mod_altitude_lizard.stan')
-fit_altitude_lizard <- cmdstan_model(file, compile = T)
-
-mod_altitude_lizard <- 
-  fit_altitude_lizard$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-
-```
-
-
-### MCMC diagnostics
-
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
-
-mcmc_trace(mod_altitude_lizard$draws(c('alpha', 
-                                     # 'beta_lat', 
-                                     # 'beta_H_pop', 
-                                     # 'beta_H_foot',
-                                     # 'beta_I_mainland', 
-                                     # 'beta_I_altitude',
-                                     # 'beta_I_alt', 
-                                     'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
-                                     # 'beta_temp', 
-                                     # 'beta_NV',
-                                     # 'beta_bush', 
-                                     # 'inv_rank', 
-)))
-```
-
-
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
-par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
-sum_altitude_lizard <- mod_altitude_lizard$summary()
-mod_diagnostics(mod_altitude_lizard, sum_altitude_lizard)
-ppcheck_altitude_lizard <- mod_altitude_lizard$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$Lizard), main = '', 
-     xlab = 'Lizard frugivory', ylim = c(0, 6))
-for (i in 1:200) lines(density(ppcheck_altitude_lizard[i, ]), lwd = 0.1)
-lines(density(dat$Lizard), lwd = 2, col = 'red')
-par(mfrow = c(1, 1))
-
-rm('ppcheck_altitude_lizard')
-```
-
-### Posterior distributions
-
-```{r}
-post_altitude_lizard <- 
-  mod_altitude_lizard$draws(c('alpha', 
-                            # 'beta_lat', 
-                            # 'beta_H_pop', 
-                            # 'beta_H_foot',
-                            # 'beta_I_mainland', 
-                            # 'beta_I_altitude',
-                            # 'beta_I_alt', 
-                            'beta_I_alt',
-                            # 'beta_temp', 
-                            # 'beta_NV',
-                            # 'beta_bush', 
-                            # 'inv_rank', 
-                            'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome'), 
-                          format = 'df')
-
-post_altitude_lizard <- 
-  lapply(c('alpha', 
-           #'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_altitude',
-           # 'beta_I_alt', 
-           'beta_I_alt',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_lizard[, grep(x, colnames(post_altitude_lizard))]
-           })
-
-names(post_altitude_lizard) <- c('alpha', 
-                               'beta', 
-                               # 'beta_H_pop', 
-                               # 'beta_H_foot',
-                               # 'beta_I_mainland', 
-                               # 'beta_I_altitude',
-                               # 'beta_I_alt', 
-                               # 'beta_I_altitude',
-                               # 'beta_temp', 
-                               # 'beta_NV',
-                               # 'beta_bush', 
-                               # 'inv_rank', 
-                               'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome')
-```
-
-
-## Model: Fruit dispersal
-
-### Mathematical notation
-
-$$
-\begin{aligned}
-& \text{Fruit dispersal}_{bush~i} \sim \text{binomial}(15, p_i) \\
-& logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
-& ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
-\\
-& \beta \sim \mathcal{N}(0, 1) \\
-\end{aligned}
-$$
-
-### `Stan` code
-
-Raw `stan` code of the model can be found at the file `mod_altitude_disp.rds`.
-
-```{r, echo=FALSE}
-mod_altitude_disp <- readRDS('mod_altitude_disp.rds')
-mod_altitude_disp$code()
-```
-
-### MCMC Sampling setup
-
-```{r, eval=FALSE}
-file <- paste0(getwd(), '/mod_altitude_dispersion.stan')
-fit_altitude_disp <- cmdstan_model(file, compile = T)
-
-mod_altitude_disp <- 
-  fit_altitude_disp$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-
-```
-
-
-### MCMC diagnostics
-
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
-
-mcmc_trace(mod_altitude_disp$draws(c('alpha', 
-                                     # 'beta_lat', 
-                                     # 'beta_H_pop', 
-                                     # 'beta_H_foot',
-                                     # 'beta_I_mainland', 
-                                     # 'beta_I_altitude',
-                                     # 'beta_I_alt', 
-                                     'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
-                                     # 'beta_temp', 
-                                     # 'beta_NV',
-                                     # 'beta_bush', 
-                                     # 'inv_rank', 
-                                     )))
-```
-
-
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
-par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
-sum_altitude_disp <- mod_altitude_disp$summary()
-mod_diagnostics(mod_altitude_disp, sum_altitude_disp)
-ppcheck_altitude_disp <- mod_altitude_disp$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$dispersion), main = '', 
-     xlab = 'Fruit dispersal', ylim = c(0, 0.4))
-for (i in 1:200) lines(density(ppcheck_altitude_disp[i, ]), lwd = 0.1)
-lines(density(dat$dispersion), lwd = 2, col = 'red')
-par(mfrow = c(1, 1))
-
-rm('ppcheck_altitude_disp')
-```
-
-### Posterior distributions
-
-```{r}
-post_altitude_disp <- 
-  mod_altitude_disp$draws(c('alpha', 
-                        # 'beta_lat', 
-                        # 'beta_H_pop', 
-                        # 'beta_H_foot',
-                        # 'beta_I_mainland', 
-                        # 'beta_I_altitude',
-                        # 'beta_I_alt', 
-                        'beta_I_alt',
-                        # 'beta_temp', 
-                        # 'beta_NV',
-                        # 'beta_bush', 
-                        # 'inv_rank', 
-                        'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome'), 
-                      format = 'df')
-
-post_altitude_disp <- 
-  lapply(c('alpha', 
-           #'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_altitude',
-           # 'beta_I_alt', 
-           'beta_I_alt',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_disp[, grep(x, colnames(post_altitude_disp))]
-           })
-
-names(post_altitude_disp) <- c('alpha', 
-                           'beta', 
-                           # 'beta_H_pop', 
-                           # 'beta_H_foot',
-                           # 'beta_I_mainland', 
-                           # 'beta_I_altitude',
-                           # 'beta_I_alt', 
-                           # 'beta_I_altitude',
-                           # 'beta_temp', 
-                           # 'beta_NV',
-                           # 'beta_bush', 
-                           # 'inv_rank', 
-                           'TI', 'p_island', 
-                           'p_country', 'p_grid', 
-                           'p_plant', 'p_realm', 
-                           'p_ecoR', 'p_biome')
-
-```
-
-
-## Model: Fruit predation
-
-### Mathematical notation
-
-$$
-\begin{aligned}
-& \text{Fruit predation}_{bush~i} \sim \text{binomial}(15, p_i) \\
-& logit(p) = \alpha + \beta \times \text{island isolation}_i +  \\
-& ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
-\\
-& \beta \sim \mathcal{N}(0, 1) \\
-\end{aligned}
-$$
-
-### `Stan` code
-
-Raw `stan` code of the model can be found at the file `mod_altitude_pred.rds`.
-
-```{r, echo=FALSE}
-mod_altitude_pred <- readRDS('mod_altitude_pred.rds')
-mod_altitude_pred$code()
-```
-
-### MCMC Sampling setup
-
-```{r, eval=FALSE}
-
-file <- paste0(getwd(), '/mod_altitude_predation.stan')
-fit_altitude_pred <- cmdstan_model(file, compile = T)
-
-mod_altitude_pred <- 
-  fit_altitude_pred$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-
-```
-
-
-### MCMC diagnostics
-
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
-
-mcmc_trace(mod_altitude_pred$draws(c('alpha', 
-                                #'beta_lat', 
-                                # 'beta_H_pop', 
-                                # 'beta_H_foot',
-                                # 'beta_I_mainland', 
-                                # 'beta_I_size',
-                                 'beta_I_alt', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
-                                #'beta_I_size'
-                                # 'beta_temp', 
-                                # 'beta_NV',
-                                # 'beta_bush', 
-                                # 'inv_rank', 
-)))
-```
-
-
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
-par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
-sum_altitude_pred <- mod_altitude_pred$summary()
-mod_diagnostics(mod_altitude_pred, sum_altitude_pred)
-ppcheck_altitude_pred <- mod_altitude_pred$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$predation), main = '', 
-     xlab = 'Seed predation', ylim = c(0, 0.4))
-for (i in 1:200) lines(density(ppcheck_altitude_pred[i, ]), lwd = 0.1)
-lines(density(dat$predation), lwd = 2, col = 'red')
-par(mfrow = c(1, 1))
-
-rm('ppcheck_altitude_pred')
-```
-
-### Posterior distributions
-
-```{r}
-post_altitude_pred <- 
-  mod_altitude_pred$draws(c('alpha', 
-                        # 'beta_lat', 
-                        # 'beta_H_pop', 
-                        # 'beta_H_foot',
-                        # 'beta_I_mainland', 
-                        # 'beta_I_altitude',
-                        # 'beta_I_alt', 
-                        'beta_I_alt',
-                        # 'beta_temp', 
-                        # 'beta_NV',
-                        # 'beta_bush', 
-                        # 'inv_rank', 
-                        'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome'), 
-                      format = 'df')
-
-post_altitude_pred <- 
-  lapply(c('alpha', 
-           # 'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_altitude',
-           # 'beta_I_alt', 
-           'beta_I_alt',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_pred[, grep(x, colnames(post_altitude_pred))]
-           })
-
-names(post_altitude_pred) <- c('alpha', 
-                           'beta', 
-                           # 'beta_H_pop', 
-                           # 'beta_H_foot',
-                           # 'beta_I_mainland', 
-                           # 'beta_I_altitude',
-                           # 'beta_I_alt', 
-                           # 'beta_I_altitude',
-                           # 'beta_temp', 
-                           # 'beta_NV',
-                           # 'beta_bush', 
-                           # 'inv_rank', 
-                           'TI', 'p_island', 
-                           'p_country', 'p_grid', 
-                           'p_plant', 'p_realm', 
-                           'p_ecoR', 'p_biome')
-
-```
-
-
-# S10. Effect of island altitude
-
-## Model: Total frugivory
-
-### Mathematical notation
-
-$$
-\begin{aligned}
-& \text{Total frugivory}_{bush~i} \sim \text{binomial}(15, p_i) \\
-& logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
-& ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
-\\
-& \beta \sim \mathcal{N}(0, 1) \\
-\end{aligned}
-$$
-
-### `Stan` code
-
-Raw `stan` code of the model can be found at the file `mod_altitude_tot.rds`.
-
-```{r, echo=FALSE}
-mod_altitude_tot <- readRDS('mod_altitude_tot.rds')
-mod_altitude_tot$code()
-```
-
-### MCMC Sampling setup
-
-```{r, eval=FALSE}
-file <- paste0(getwd(), '/mod_altitude_total.stan')
-fit_altitude_tot <- cmdstan_model(file, compile = T)
-
-mod_altitude_tot <- 
-  fit_altitude_tot$sample(
-    data = dat, 
-    chains = 4,
-    parallel_chains = 4,
-    iter_warmup = 500, 
-    iter_sampling = 2e3,
-    thin = 3, 
-    seed = 23061993
-  )
-```
-
-
-### MCMC diagnostics
-
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
-mcmc_trace(mod_altitude_tot$draws(c('alpha', 
-                                #'beta_lat', 
-                                # 'beta_H_pop', 
-                                # 'beta_H_foot',
-                                # 'beta_I_mainland', 
-                                # 'beta_I_size',
-                                'beta_I_alt', 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
-                                #'beta_I_size'
-                                # 'beta_temp', 
-                                # 'beta_NV',
-                                # 'beta_bush', 
-                                # 'inv_rank', 
-                                )))
-```
-
-
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
-par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
-sum_altitude_tot <- mod_altitude_tot$summary()
-mod_diagnostics(mod_altitude_tot, sum_altitude_tot)
-ppcheck_altitude_tot <- mod_altitude_tot$draws('ppcheck', format = 'matrix')
-
-plot(density(dat$total_remotion), main = '', 
-     xlab = 'Total fruigivory', ylim = c(0, 0.1))
-for (i in 1:200) lines(density(ppcheck_altitude_tot[i, ]), lwd = 0.1)
-lines(density(dat$total_remotion), lwd = 2, col = 'red')
-par(mfrow = c(1, 1))
-
-rm('ppcheck_altitude_tot')
-```
-
-### Posterior distributions
-
-```{r}
-post_altitude_tot <- 
-  mod_altitude_tot$draws(c('alpha', 
-                       #'beta_lat', 
-                       # 'beta_H_pop', 
-                       # 'beta_H_foot',
-                       # 'beta_I_mainland', 
-                       # 'beta_I_altitude',
-                       # 'beta_I_alt', 
-                       'beta_I_alt',
-                       # 'beta_temp', 
-                       # 'beta_NV',
-                       # 'beta_bush', 
-                       # 'inv_rank', 
-                       'TI', 'p_island', 
-                       'p_country', 'p_grid', 
-                       'p_plant', 'p_realm', 
-                       'p_ecoR', 'p_biome'), 
-                     format = 'df')
-
-post_altitude_tot <- 
-  lapply(c('alpha', 
-           # 'beta_lat', 
-           # 'beta_H_pop', 
-           # 'beta_H_foot',
-           # 'beta_I_mainland', 
-           # 'beta_I_altitude',
-           # 'beta_I_alt', 
-           'beta_I_alt',
-           # 'beta_temp', 
-           # 'beta_NV',
-           # 'beta_bush', 
-           # 'inv_rank', 
-           'TI', 'p_island', 
-           'p_country', 'p_grid', 
-           'p_plant', 'p_realm', 
-           'p_ecoR', 'p_biome'), FUN = 
-           function(x) {
-             post_altitude_tot[, grep(x, colnames(post_altitude_tot))]
-           })
-
-names(post_altitude_tot) <- c('alpha', 
-                          'beta', 
-                          # 'beta_H_pop', 
-                          # 'beta_H_foot',
-                          # 'beta_I_mainland', 
-                          # 'beta_I_altitude',
-                          # 'beta_I_alt', 
-                          #'beta_I_altitude',
-                          # 'beta_temp', 
-                          # 'beta_NV',
-                          # 'beta_bush', 
-                          # 'inv_rank', 
-                          'TI', 'p_island', 
-                          'p_country', 'p_grid', 
-                          'p_plant', 'p_realm', 
-                          'p_ecoR', 'p_biome')
-```
-
-
-
-## Model: Bird frugivory
-
-### Mathematical notation
-
-$$
-\begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -3479,11 +2753,8 @@ mcmc_trace(mod_altitude_bird$draws(c('alpha',
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
                                      'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -3576,7 +2847,7 @@ names(post_altitude_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -3626,11 +2897,8 @@ mcmc_trace(mod_altitude_lizard$draws(c('alpha',
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
                                      'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -3772,11 +3040,8 @@ mcmc_trace(mod_altitude_disp$draws(c('alpha',
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
                                      'beta_I_alt', 
-                                     'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_temp', 
                                      # 'beta_NV',
                                      # 'beta_bush', 
@@ -3870,7 +3135,7 @@ names(post_altitude_disp) <- c('alpha',
 $$
 \begin{aligned}
 & \text{Fruit predation}_{bush~i} \sim \text{binomial}(15, p_i) \\
-& logit(p) = \alpha + \beta \times \text{island isolation}_i +  \\
+& logit(p) = \alpha + \beta \times \text{island altitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -3919,11 +3184,8 @@ mcmc_trace(mod_altitude_pred$draws(c('alpha',
                                 # 'beta_I_mainland', 
                                 # 'beta_I_size',
                                  'beta_I_alt' , 
-                                'TI', 'p_island', 
-                               'p_country', 'p_grid', 
-                               'p_plant', 'p_realm', 
-                               'p_ecoR', 'p_biome',
-                               'eta', 'rho'
+                                'TI', 'p_realm', 
+                                    'eta', 'rho'
                                 #'beta_I_size'
                                 # 'beta_temp', 
                                 # 'beta_NV',
@@ -4011,7 +3273,7 @@ names(post_altitude_pred) <- c('alpha',
 ```
 
 
-# S11. Effect of human footprint
+# S10. Effect of human footprint
 
 ## Model: Total frugivory
 
@@ -4063,11 +3325,8 @@ mcmc_trace(mod_footprint_tot$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         'beta_H_foot',
-                                        'TI', 'p_island', 
-                           'p_country', 'p_grid', 
-                           'p_plant', 'p_realm', 
-                           'p_ecoR', 'p_biome',
-                           'eta', 'rho'
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho'
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -4164,7 +3423,7 @@ names(post_footprint_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{human footprint}_i + \beta \times \text{human population}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -4209,11 +3468,8 @@ mcmc_trace(mod_footprint_bird$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         'beta_H_foot',
-                                      'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho'
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho'
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -4310,7 +3566,7 @@ names(post_footprint_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{human footprint}_i + \beta \times \text{human population}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
@@ -4356,11 +3612,8 @@ mcmc_trace(mod_footprint_lizard$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         'beta_H_foot',
-                                        'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho'
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho'
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -4502,11 +3755,8 @@ mcmc_trace(mod_footprint_disp$draws(c('alpha',
                                      # 'beta_lat', 
                                      # 'beta_H_pop', 
                                       'beta_H_foot',
-                                     'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho'
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho'
                                      # 'beta_I_mainland', 
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
@@ -4651,11 +3901,8 @@ mcmc_trace(mod_footprint_pred$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         'beta_H_foot',
-                                      'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho'
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho'
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -4747,7 +3994,7 @@ names(post_footprint_pred) <- c('alpha',
 
 
 
-# S12. Effect of native vegetation
+# S11. Effect of native vegetation
 
 ## Model: Total frugivory
 
@@ -4802,17 +4049,14 @@ mcmc_trace(mod_nativeV_tot$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                        'TI', 'p_island', 
-                           'p_country', 'p_grid', 
-                           'p_plant', 'p_realm', 
-                           'p_ecoR', 'p_biome',
-                           'eta', 'rho',
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
                                         # 'beta_I_alt',
                                         # 'beta_temp', 
-                                        'beta_NV',
+                                        'beta_NV'
                                         # 'beta_bush', 
                                         # 'inv_rank', 
                                         )))
@@ -4903,7 +4147,7 @@ names(post_nativeV_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{human footprint}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \beta \times \text{island altitude}_i + \beta \times \text{island isolation}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \zeta_{invasive~rank}\\
@@ -4951,17 +4195,14 @@ mcmc_trace(mod_nativeV_bird$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                      'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho',
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
                                         # 'beta_I_alt',
                                         # 'beta_temp', 
-                                        'beta_NV',
+                                        'beta_NV'
                                         # 'beta_bush', 
                                         # 'inv_rank', 
 )))
@@ -5052,7 +4293,7 @@ names(post_nativeV_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{human footprint}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \beta \times \text{island altitude}_i + \beta \times \text{island isolation}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \zeta_{invasive~rank}\\
@@ -5101,17 +4342,14 @@ mcmc_trace(mod_nativeV_lizard$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                        'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho',
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
                                         # 'beta_I_alt',
                                         # 'beta_temp', 
-                                        'beta_NV',
+                                        'beta_NV'
                                         # 'beta_bush', 
                                         # 'inv_rank', 
 )))
@@ -5251,17 +4489,14 @@ mcmc_trace(mod_nativeV_disp$draws(c('alpha',
                                      # 'beta_lat', 
                                      # 'beta_H_pop', 
                                       #'beta_H_foot',
-                                     'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho',
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho',
                                      # 'beta_I_mainland', 
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
                                      #'beta_I_alt'
                                      # 'beta_temp', 
-                                     'beta_NV',
+                                     'beta_NV'
                                      # 'beta_bush', 
                                      # 'inv_rank', 
                                      )))
@@ -5402,17 +4637,14 @@ mcmc_trace(mod_nativeV_pred$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                      'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho',
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
                                         # 'beta_I_alt',
                                         # 'beta_temp', 
-                                        'beta_NV',
+                                        'beta_NV'
                                         # 'beta_bush', 
                                         # 'inv_rank', 
 )))
@@ -5498,7 +4730,7 @@ names(post_nativeV_pred) <- c('alpha',
 
 
 
-# S13. Effect of bush cover
+# S12. Effect of bush cover
 
 ## Model: Total frugivory
 
@@ -5508,7 +4740,7 @@ $$
 \begin{aligned}
 & \text{Total frugivory}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{bush cover}_i + \\
-& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i +
+& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -5551,11 +4783,8 @@ mcmc_trace(mod_bush_tot$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                        'TI', 'p_island', 
-                           'p_country', 'p_grid', 
-                           'p_plant', 'p_realm', 
-                           'p_ecoR', 'p_biome',
-                           'eta', 'rho',
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -5652,9 +4881,9 @@ names(post_bush_tot) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Bird frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{bush cover}_i + \\
-& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i +
+& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -5698,11 +4927,8 @@ mcmc_trace(mod_bush_bird$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                      'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho',
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -5799,9 +5025,9 @@ names(post_bush_bird) <- c('alpha',
 
 $$
 \begin{aligned}
-& \text{Lizard frugivory}_{bush~i} \sim \text{bernoulli}(p_i) \\
+& \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{bush cover}_i + \\
-& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i +
+& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -5846,11 +5072,8 @@ mcmc_trace(mod_bush_lizard$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                        'TI', 'p_island', 
-                            'p_country', 'p_grid', 
-                            'p_plant', 'p_realm', 
-                            'p_ecoR', 'p_biome',
-                            'eta', 'rho',
+                                        'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -5949,7 +5172,7 @@ $$
 \begin{aligned}
 & \text{Fruit dispersal}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{bush cover}_i + \\
-& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i +
+& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -5994,11 +5217,8 @@ mcmc_trace(mod_bush_disp$draws(c('alpha',
                                      # 'beta_lat', 
                                      # 'beta_H_pop', 
                                       #'beta_H_foot',
-                                     'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho',
+                                     'TI', 'p_realm', 
+                                    'eta', 'rho',
                                      # 'beta_I_mainland', 
                                      # 'beta_I_altitude',
                                      # 'beta_I_alt', 
@@ -6097,7 +5317,7 @@ $$
 \begin{aligned}
 & \text{Fruit predation}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{native vegetation}_i + \beta \times \text{bush cover}_i + \\
-& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i +
+& ~~~~~~~~~~~~~~~~~~ \beta \times \text{temperature}_i + \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
 & ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
 \\
@@ -6143,11 +5363,8 @@ mcmc_trace(mod_bush_pred$draws(c('alpha',
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
                                         #'beta_H_foot',
-                                      'TI', 'p_island', 
-                        'p_country', 'p_grid', 
-                        'p_plant', 'p_realm', 
-                        'p_ecoR', 'p_biome',
-                        'eta', 'rho',
+                                      'TI', 'p_realm', 
+                                    'eta', 'rho',
                                         # 'beta_I_mainland', 
                                         # 'beta_I_footprint',
                                         # 'beta_I_alt', 
@@ -6238,289 +5455,285 @@ names(post_bush_pred) <- c('alpha',
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# SXX. Results
-
-# Factords
-
-```{r, eval=FALSE}
-est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'random',
-                                 n = 100)
-
-plot(dat$lat, dat$total_remotion, cex = 0.1)
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'averaging',
-                                 n = 100)
-
-plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'random',
-                                 n = 100)
-
-plot(dat$lat, dat$total_remotion, cex = 0.1)
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'averaging',
-                                 n = 100)
-
-plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'random',
-                                 n = 100)
-
-plot(dat$lat, dat$total_remotion, cex = 0.1)
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'averaging',
-                                 n = 100)
-
-plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'random',
-                                 n = 100)
-
-plot(dat$lat, dat$total_remotion, cex = 0.1)
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-est_latitude_tot %$% plot(x, y, type = 'l', ylim = c(0, 1))
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
-
-
-est_latitude_tot <- cond_effects(posterior = post_altitude_tot,
-                                 x_bar = dat$lat,
-                                 slope = 'beta_lat',
-                                 type = 'averaging',
-                                 n = 100)
-
-plot(NULL, xlim = c(-2.2, 1.8), ylim = c(0, 1))
-est_latitude_tot %$% lines(x, y)
-est_latitude_tot %$% lines(x, li, lty = 3)
-est_latitude_tot %$% lines(x, ls, lty = 3)
+# S13. Results
+
+## Factors
+
+### Effect of biogeographical realms (island level)
+
+```{r}
+islands_post <- 
+  lapply(ls()[grep('^post_latit', ls())], FUN = 
+         function(x) {
+           
+           posterior <- get(x)
+           
+           est1 <- 
+             lapply(codes$island$code, FUN =
+                      function(i) {
+                        
+                        indx_xvar <- which(dat$island == i)
+                        indx_realm <- unique(dat$realm[indx_xvar])
+                        indx_count <- unique(dat$country[indx_xvar])
+                        indx_typeI <- unique(dat$island_type[indx_xvar])
+                        indx_grid <- unique(dat$grid[indx_xvar])
+                        indx_plant <- unique(dat$plant_ID[indx_xvar])
+                        indx_ecoR <- unique(dat$ecoregion[indx_xvar])
+                        indx_biome <- unique(dat$biome[indx_xvar])
+                        
+                        island <- codes$island
+                        realm <- codes$real
+                        ty_is <- codes$island_type
+                        
+                        lab_island <- island[island$code == i, ]$island
+                        lab_realm <- realm[realm$code == indx_realm, ]$island
+                        lab_TI <- ty_is[ty_is$code == indx_typeI, ]$island
+                        
+                        est <-
+                          with(posterior,
+                               {
+                                 inv_logit(alpha$alpha +
+                                             p_island[, i, drop = T] +
+                                             TI[, indx_typeI, drop = T] +
+                                             p_realm[, indx_realm, drop = T] +
+                                             p_country[, indx_count, drop = T] +
+                                             apply(p_grid[, indx_grid], 1, median) +
+                                             apply(p_plant[, indx_plant], 1, median) +
+                                             apply(p_ecoR[, indx_ecoR], 1, median) +
+                                             apply(p_biome[, indx_biome], 1, median)
+                                           )
+                               })
+                        
+                        #print(i)
+                        
+                        tibble(mu = median(est),
+                               li = quantile(est, 0.025),
+                               ls = quantile(est, 0.975),
+                               island = lab_island,
+                               type_island = lab_TI,
+                               realm = lab_realm,
+                               modelo = gsub('^(post_latitude_)(.*)$',
+                                             '\\2', x))
+
+                      })
+           
+           do.call('rbind', est1)
+
+         })
+
+names(islands_post) <- ls()[grep('^post_latit', ls())]
+
+islands_post <- 
+  lapply(seq_along(islands_post), FUN = 
+         function(x) {
+           d <- islands_post[[x]]
+           d$model <- c('Bird frugivory', 
+                        'Seed dispersal', 'Lizard frugivory', 
+                        'Seed predation', 
+                         'Total frugivory')[[x]]
+           d
+         })
+
+names(islands_post) <- ls()[grep('^post_latit', ls())]
+
+
+plots_islands_realm <- 
+  lapply(islands_post, FUN = 
+           function(x) {
+             ggplot(data = x, 
+                    aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+                        ymin = li, ymax = ls, 
+                        color = realm)) +
+               labs(y = 'P(fruit consumption)', x = 'Islands') +
+               geom_hline(yintercept = 0.5, linetype = 3) +
+               geom_errorbar(width = 0, linewidth = 1, alpha = 0.6) +
+               scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+               geom_point(size = 0.5) +
+               theme_classic() +
+               facet_wrap(~model) +
+               theme(axis.text.x = element_blank(), 
+                     legend.title = element_blank(), 
+                     legend.position = c(0.15, 0.8), 
+                     legend.box.background = element_blank(), 
+                     legend.key.size = unit(4, 'mm'),
+                     strip.background = element_blank(), 
+                     axis.line = element_line(linewidth = 0.25), 
+                     axis.ticks = element_line(linewidth = 0.25))
+           })
+
+
+plots_islands_realm$post_latitude_disp <- 
+  plots_islands_realm$post_latitude_disp +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_pred <- 
+  plots_islands_realm$post_latitude_pred +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_bird <- 
+  plots_islands_realm$post_latitude_bird +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_lizard <- 
+  plots_islands_realm$post_latitude_lizard +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_realm$post_latitude_tot <- 
+  ggplot(data = islands_post$post_latitude_tot, 
+         aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+             ymin = li, ymax = ls, 
+             color = realm)) +
+  labs(y = 'P(fruit consumption)', x = NULL) +
+  geom_hline(yintercept = 0.5, linetype = 3) +
+  geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+  geom_point(size = 1.5) +
+  theme_classic() +
+  facet_wrap(~model) +
+  theme(axis.text.x = element_blank(), legend.title = element_blank(), 
+        legend.position = c(0.15, 0.85), 
+        legend.box.background = element_blank(), 
+        legend.key.size = unit(4, 'mm'),
+        strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.25), 
+        axis.ticks = element_line(linewidth = 0.25))
+
+
+
+layout <- 
+  '
+  aab
+  aac
+  de#
+'
+```
+
+```{r, fig.height=10, fig.width=10, fig.cap='Estimated probability of fruit consumption across islands worldwide, categorized by biogeographical region. Colors represent different biogeographical regions. Each panel displays: total frugivory (seed dispersal + seed predation), seed dispersal (from birds and lizards), seed predation (by rodents), bird frugivory, and lizard frugivory. Points and error bars indicate the median and 95 percentage credibility intervals of the posterior distributions.'}
+plots_islands_realm$post_latitude_tot + 
+  plots_islands_realm$post_latitude_disp +
+  plots_islands_realm$post_latitude_pred +
+  plots_islands_realm$post_latitude_bird +
+  plots_islands_realm$post_latitude_lizard +
+  plot_layout(design = layout, labels) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
 
 ```
 
-## Effect of type of island
+### Effect type of island (island level)
 
-```{r, eval=FALSE}
+```{r}
+plots_islands_type <- 
+  lapply(islands_post, FUN = 
+           function(x) {
+             ggplot(data = x, 
+                    aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+                        ymin = li, ymax = ls, 
+                        color = type_island)) +
+               labs(y = 'P(fruit consumption)', x = 'Islands') +
+               geom_hline(yintercept = 0.5, linetype = 3) +
+               geom_errorbar(width = 0, linewidth = 1, alpha = 0.6) +
+               scale_color_manual(values = 
+                                    RColorBrewer::brewer.pal(3, "Accent")) +
+               geom_point(size = 0.5) +
+               theme_classic() +
+               facet_wrap(~model) +
+               theme(axis.text.x = element_blank(), 
+                     legend.title = element_blank(), 
+                     legend.position = c(0.15, 0.8), 
+                     legend.box.background = element_blank(), 
+                     legend.key.size = unit(4, 'mm'),
+                     strip.background = element_blank(), 
+                     axis.line = element_line(linewidth = 0.25), 
+                     axis.ticks = element_line(linewidth = 0.25))
+           })
+
+
+plots_islands_type$post_latitude_disp <- 
+  plots_islands_type$post_latitude_disp +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_pred <- 
+  plots_islands_type$post_latitude_pred +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_bird <- 
+  plots_islands_type$post_latitude_bird +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_lizard <- 
+  plots_islands_type$post_latitude_lizard +
+  labs(y = NULL) +
+  theme(legend.position = 'none', 
+        axis.ticks.x = element_blank())
+
+plots_islands_type$post_latitude_tot <- 
+  ggplot(data = islands_post$post_latitude_tot, 
+         aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+             ymin = li, ymax = ls, 
+             color = type_island)) +
+  labs(y = 'P(fruit consumption)', x = NULL) +
+  geom_hline(yintercept = 0.5, linetype = 3) +
+  geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+  geom_point(size = 1.5) +
+  theme_classic() +
+  facet_wrap(~model) +
+  theme(axis.text.x = element_blank(), legend.title = element_blank(), 
+        legend.position = c(0.15, 0.9), 
+        legend.box.background = element_blank(), 
+        legend.key.size = unit(4, 'mm'),
+        strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.25), 
+        axis.ticks = element_line(linewidth = 0.25))
+
+
+
+```
+
+```{r, fig.cap='Estimated probability of fruit consumption across islands worldwide, categorized by type of island. Colors represent different biogeographical regions. Each panel displays: total frugivory (seed dispersal + seed predation), seed dispersal (from birds and lizards), seed predation (by rodents), bird frugivory, and lizard frugivory. Points and error bars indicate the median and 95 percentage credibility intervals of the posterior distributions.', fig.height=10, fig.width=10}
+plots_islands_type$post_latitude_tot + 
+  plots_islands_type$post_latitude_disp +
+  plots_islands_type$post_latitude_pred +
+  plots_islands_type$post_latitude_bird +
+  plots_islands_type$post_latitude_lizard +
+  plot_layout(design = layout, labels) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+```
+
+
+```{r}
+
+label <- 'Fruit consumption probabilities across islands, by biogeographical region, island type, and frugivory type. columns mu, li, and ls, indicate median, and 95 percentage credibility intervals of the posterior distribution'
+
+
+knitr::kable(do.call('rbind', islands_post)[,-7], 
+             digits = 3, 
+             caption = label) |> 
+  kable_styling(font_size = 8)
+
+```
+
+
+### Averarage effects of biogeographic realm and type of island
+
+```{r}
+
 TI_tot <- average_effects(n_levels = ncol(post_latitude_tot$TI),
                           posterior = post_latitude_tot, 
                           x_var1 = 'island_type', 
@@ -6555,12 +5768,7 @@ TI_pred <- average_effects(n_levels = ncol(post_latitude_pred$TI),
                            x_var2 = 'realm', 
                            par1 = 'TI', 
                            par2 = 'p_realm')
-```
 
-
-## Effect of realm
-
-```{r, eval=FALSE}
 realm_tot <- average_effects(n_levels = ncol(post_latitude_tot$p_realm),
                           posterior = post_latitude_tot, 
                           x_var1 = 'realm', 
@@ -6595,54 +5803,1465 @@ realm_pred <- average_effects(n_levels = ncol(post_latitude_pred$p_realm),
                            x_var2 = 'island_type', 
                            par1 = 'p_realm', 
                            par2 = 'TI')
+
+plot_disp_pred_islands <- 
+  rbind(full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+        full_join(TI_bird, codes$island_type, 'code') |> 
+          mutate(type = "Bird frugivory"),
+        full_join(TI_lizard, codes$island_type, 'code') |> 
+          mutate(type = "Lizard frugivory"),
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#F2C230', '#7A577A', '#8C1F28', '#0897B4')) +
+  scale_x_discrete(labels = c('Continental', 'Coralline', 'Volcanic')) +
+  labs(y = ' ', x = 'Type of island') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.24, 0.8),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(3.5, 'mm')
+  )
+
+plot_frugivory_islands <- 
+  full_join(TI_tot, codes$island_type, 'code') |> 
+  mutate(type = 'Frugivory') |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.2), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.2), size = 2) +
+  scale_color_manual(values = c('#D92525')) +
+  labs(y = 'P(fruit consumption)', x = 'Type of island') +
+  scale_x_discrete(labels = c('Continental', 'Coralline', 'Volcanic')) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.24, 0.8),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+
+
+plot_frugivory_realms <- 
+full_join(realm_tot, codes$real, 'code') |> 
+  mutate(type = 'Total frugivory') |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.4), size = 2) +
+  scale_color_manual(values = c('#D92525')) +
+  labs(y = 'P(fruit consumption)', x = 'Biogeographic realm') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'), 
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+
+
+plot_disp_pred_realms <- 
+rbind(full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Bird frugivory'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizard frugivory'),
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique() |> 
+  ggplot(aes(island, mu, ymin = li, ymax = ls, color = type)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.5), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  scale_color_manual(values = c('#F2C230', '#7A577A', '#8C1F28', '#0897B4')) +
+  labs(y = ' ', x = 'Biogeographic realm') +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm'),
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+  )
+
+
+```
+
+```{r, fig.width=15, fig.height=10, fig.cap='Probability of fruit consumption on continental, coralline and volcanic islands and biogeographic realms worldwide. Panels a and c show the probability of frugivory interactions (i.e., dispersion + predation) at different types of islands (c) and biogeographic realms (c). Panels b and d show the probability of a fruit being consumed by either a seed predator or a dispersal agent at different types of islands (b) and biogeographic realms (d).'}
+
+plot_grid(plot_grid(NULL, 
+                    plot_frugivory_islands, 
+                    plot_disp_pred_islands, 
+                    NULL,
+                    nrow = 1,  
+                    rel_widths = c(0.2, 0.8, 0.8, 0.2), 
+                    labels = c('', '(a)', '(b)', ''), 
+                    label_size = 9, 
+                    label_fontface = 'plain', 
+                    label_x = 0.15, 
+                    label_y = 0.99), 
+          plot_grid(plot_frugivory_realms, 
+                    plot_disp_pred_realms, 
+                    nrow = 1, 
+                    labels = c('(c)', '(d)'), 
+                    label_size = 9, 
+                    label_fontface = 'plain', 
+                    label_x = c(0.12, 0.135), 
+                    label_y = 0.99),
+          ncol = 1)
 ```
 
 
+```{r}
+
+label <- 'Marginalized fruit consumption probabilities across type of islands and frugivory. columns mu, li, and ls, indicate median, and 95 ercentage credibility intervals of the posterior distribution.'
+
+kable(rbind(full_join(TI_tot, codes$island_type, 'code') |> 
+        mutate(type = 'Total frugivory'),
+            full_join(TI_disp, codes$island_type, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(TI_bird, codes$island_type, 'code') |> 
+        mutate(type = "Bird frugivory"),
+      full_join(TI_lizard, codes$island_type, 'code') |> 
+        mutate(type = "Lizard frugivory"),
+      full_join(TI_pred, codes$island_type, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique(), 
+  digits = 3, 
+  caption = label)
+```
 
 
+```{r}
+
+label <- 'Marginalized fruit consumption probabilities across biogeographical region, and frugivory type. columns mu, li, and ls, indicate median, and 95 ercentage credibility intervals of the posterior distribution.'
+
+kable(rbind(full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Total frugivory'), 
+            full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed dispersal'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Bird frugivory'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizard frugivory'),
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed predation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique(), 
+  digits = 3, 
+  caption = label)
+```
+
+## Contrast
+
+### Type of island
+
+```{r}
+comtrast_type_islands<- 
+  lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(TI_tot, TI_disp, TI_pred, TI_bird, TI_lizard)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(1:3, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$island_type$island
+                           d
+                         })
+          
+           names(d) <- c('Total frugivory', 
+                         'Seed dispersal', 'Seed predation', 
+                         'Bird frugivory', 'Lizard frugivory')
+           
+           d <- 
+             lapply(d, FUN = 
+                      function(jj) {
+                        
+                        prob <-
+                          lapply(1:(3-1), FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply((i+1):3, FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste0('P(', 
+                                                          codes$island_type$island[i],
+                                                          ' > ',
+                                                          codes$island_type$island[j], 
+                                                          ')')
+                                                  
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+                                                  
+                                                })
+                                     do.call('rbind', df)
+                                   })
+                        
+                        do.call('rbind', prob)
+                        
+                      })
+           
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+          
+           d <- do.call('rbind', d)
+           
+           
+           d
+         })[[1]]
+```
+
+```{r}
+label <- 'Contrast of the probability of fruit consumption among type of islands'
+
+knitr::kable(comtrast_type_islands, 
+             caption = label, 
+             digits = 3) |> 
+  kable_styling(font_size = 8)
+```
+
+### Biogeographic realms
+
+```{r}
+contrast_realms <- 
+  lapply(1, FUN = 
+         function(x) {
+           
+           d <- list(realm_tot, realm_disp, realm_pred,
+                     realm_bird, realm_lizard)
+           d <- lapply(d, FUN = 
+                         function(z) {
+                           d <- lapply(codes$real$code, FUN = 
+                                         function(k) {
+                                           z[z$code == k, 'y']
+                                         })
+                           d <- do.call('cbind', d) 
+                           colnames(d) <- codes$real$island
+                           d
+                         })
+           
+           names(d) <- c('Total frugivory', 'Seed dispersal',
+                         'Seed predation', 
+                         'Bird frugivory', 'Lizard frugivory')
+           
+           d <-
+             lapply(d, FUN =
+                      function(jj) {
+
+                        prob <-
+                          lapply(1:(length(codes$real$code)-1), FUN =
+                                   function(i) {
+                                     df <-
+                                       lapply((i+1):length(codes$real$code), 
+                                              FUN =
+                                                function(j) {
+                                                  p <- mean(jj[[i]] > jj[[j]])
+                                                  dif <- jj[[i]] - jj[[j]]
+                                                  contrast <-
+                                                    paste('P(', 
+                                                          codes$real$island[i],
+                                                          ' > ',
+                                                          codes$real$island[j],
+                                                          ')',
+                                                          sep = '')
+
+                                                  tibble(Comparison = contrast,
+                                                         probability = p,
+                                                         contrast = mean(dif),
+                                                         li = quantile(dif, 0.025),
+                                                         ls = quantile(dif, 0.975))
+
+                                                })
+                                     do.call('rbind', df)
+                                   })
+
+                        do.call('rbind', prob)
+
+                      })
+
+           for (i in seq_along(d)) {
+             d[[i]]$type <- names(d)[i]
+           }
+
+           d <- do.call('rbind', d)
+
+           d
+         })[[1]]
 
 
+```
 
 
+```{r}
+label <- 'Contrast of the probability of fruit consumption among biogeographic realms'
+
+knitr::kable(contrast_realms, 
+             caption = label, 
+             digits = 3) |> 
+  kable_styling(font_size = 8)
+```
+
+## Continuous variables
+
+This section includes summary tables and figures showing the effect of continuous variables on the probability of fruit consumption.
+
+### Slope parameters
+
+```{r}
+all_betas <- 
+  rbind(slope_pars('post_latitude', 'beta_lat') |> 
+        mutate(predictor = 'Latitude'), 
+      slope_pars('post_isolation', 'beta_I_isolation') |> 
+        mutate(predictor = 'Island isolation'), 
+      slope_pars('post_size', 'beta_I_size') |> 
+        mutate(predictor = 'Island size'), 
+      slope_pars('post_altitude', 'beta_I_alt') |> 
+        mutate(predictor = 'Island altitude'), 
+      slope_pars('post_footprint', 'beta_H_foot') |> 
+        mutate(predictor = 'Human footprint'), 
+      slope_pars('post_nativeV', 'beta_NV') |> 
+        mutate(predictor = 'Native vegetation'), 
+      slope_pars('post_bush', 'beta_bush') |> 
+        mutate(predictor = 'Bush cover'))
+
+lab <- 'Slope parameters of factors affecting frugivory interactions in islands worldwide. columns mu, li, and ls indicate respectively, the median value, 95 percent lower and uper limits of the posterior distribution; P(beta > 0): probability of the effect being positive; P(beta < 0): probability of the effect being negative; Fruit consumption: type of frugivory; predictor: predictor variable; significant: significant at 80 precent probability'
+
+knitr::kable(all_betas, 
+             caption = lab, 
+             digits = 3) |> 
+  kable_styling(font_size = 8)
+
+```
 
 
+```{r}
+beta_latitude <- 
+  post_latitude_tot$beta |> 
+  mutate(frugivory_type = 'Total frugivory') |> 
+  rename(x = beta_lat) |> 
+  ggplot(aes(x)) +
+  geom_density(fill = "#4DAF4A", alpha = 0.45, 
+               linewidth = 0) +
+  labs(x = expression(beta['latitude']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15))
+
+beta_isolation <- 
+rbind(post_isolation_tot$beta |> 
+        mutate(frugivory_type = 'Total frugivory') |> 
+        rename(x = beta_I_isolation), 
+      post_isolation_pred$beta |> 
+        mutate(frugivory_type = 'Seed predation') |> 
+        rename(x = beta_I_isolation), 
+      post_isolation_lizard$beta |> 
+        mutate(frugivory_type = 'Lizard frugivory') |> 
+        rename(x = beta_I_isolation)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island isolation']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        legend.position = 'none')
+
+beta_size <- 
+  rbind(post_size_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_I_size), 
+        post_size_lizard$beta |> 
+          mutate(frugivory_type = 'Lizard frugivory') |> 
+          rename(x = beta_I_size)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island size']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c(c("#E41A1C", "#377EB8"))) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        legend.position = 'none'
+        )
+
+beta_altitude <- 
+  rbind(post_altitude_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_I_alt),
+        post_altitude_disp$beta |> 
+          mutate(frugivory_type = 'Seed dispersal') |> 
+          rename(x = beta_I_alt),
+        post_altitude_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_I_alt), 
+        post_altitude_lizard$beta |> 
+          mutate(frugivory_type = 'Lizard frugivory') |> 
+          rename(x = beta_I_alt)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island altitude']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3", "#E41A1C", '#FF7F00', '#377EB8')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        legend.position = 'none'
+  )
 
 
+beta_foot <- 
+  rbind(post_footprint_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_H_foot)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['Human footprint']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        legend.position = 'none'
+  )
+
+beta_bush <- 
+  rbind(post_bush_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_bush), 
+        post_bush_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_bush)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['Bush cover']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3", "#377EB8")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        legend.position = 'none'
+  )
+```
+
+```{r, fig.height=15, fig.width=15, fig.cap='Slope posterior distribution of factors affecting different types of frugivory (colors)'}
+layout_design <- 
+  '
+  ab
+  cd
+  ef
+'
+
+beta_altitude + beta_isolation +
+  beta_size + beta_altitude +
+  beta_foot + beta_bush +
+  plot_layout() +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+```
 
 
+### Regression plots
+
+```{r}
+est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
+                                 x_bar = dat$lat,
+                                 slope = 'beta_lat',
+                                 type = 'averaging',
+                                 n = 100)
+
+names(post_isolation_tot)[2] <- 'beta'
+
+est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
+                                  x_bar = dat$isolation,
+                                  slope = 'beta_I_isolation',
+                                  type = 'averaging',
+                                  n = 100)
 
 
+est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'averaging',
+                                   n = 100)
+
+est_isolation_lizard <- cond_effects(posterior = post_isolation_lizard,
+                                   x_bar = dat$isolation,
+                                   slope = 'beta_I_isolation',
+                                   type = 'averaging',
+                                   n = 100)
 
 
+est_size_pred <- cond_effects(posterior = post_size_pred,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'averaging',
+                              n = 100)
+
+est_size_lizard <- cond_effects(posterior = post_size_lizard,
+                              x_bar = dat$island_size,
+                              slope = 'beta_I_size',
+                              type = 'averaging',
+                              n = 100)
 
 
+est_alt_pred <- cond_effects(posterior = post_altitude_pred,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
 
 
+est_alt_disp <- cond_effects(posterior = post_altitude_disp,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+est_alt_bird <- cond_effects(posterior = post_altitude_bird,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+est_alt_lizard <- cond_effects(posterior = post_altitude_lizard,
+                             x_bar = dat$altitude_m,
+                             slope = 'beta_I_alt',
+                             type = 'averaging',
+                             n = 100)
+
+est_foot_bird <- cond_effects(posterior = post_footprint_bird,
+                               x_bar = dat$human_footprint,
+                               slope = 'beta_H_foot',
+                               type = 'averaging',
+                               n = 100)
+
+bush_merge <- mod_bush_pred$draws('bush_merge', format = 'matrix')
+
+bush_merge <- apply(bush_merge, 2, median)
+
+est_bush_pred <- cond_effects(posterior = post_bush_pred,
+                             x_bar = bush_merge,
+                             slope = 'beta_bush',
+                             type = 'averaging',
+                             n = 100)
+
+est_bush_bird <- cond_effects(posterior = post_bush_bird,
+                              x_bar = bush_merge,
+                              slope = 'beta_bush',
+                              type = 'averaging',
+                              n = 100)
+```
+
+```{r}
+plot_scatter_isolation <- 
+  rbind(est_isolation_tot |> 
+        mutate(var = 'Island isolation', 
+               type = 'Total frugivory'), 
+      est_isolation_pred |> 
+        mutate(var = 'Island isolation', 
+               type = 'Seed predation'),
+      est_isolation_lizard |> 
+        mutate(var = 'Island isolation', 
+               type = 'Lizard frugivory')) |> 
+  mutate(x_reverted = mean(d$isolation) + x * sd(d$isolation)) |> 
+  ggplot(aes(x_reverted, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = RColorBrewer::brewer.pal(8, 'Set1')[1:3]) +
+  scale_fill_manual(values = RColorBrewer::brewer.pal(8, 'Set1')[1:3]) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Island isolation (km)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+
+plot_scatter_altitude <- 
+  rbind(est_alt_pred |> 
+        mutate(var = 'Island altitude', 
+               type = 'Seed predation'), 
+      est_alt_bird |> 
+        mutate(var = 'Island altitude', 
+               type = 'Bird frugivory'), 
+      est_alt_lizard |> 
+        mutate(var = 'Island altitude', 
+               type = 'Lizard frugivory'), 
+      est_alt_disp |> 
+        mutate(var = 'Island altitude', 
+               type = 'Seed dispersion')) |> 
+  mutate(x_reverted = mean(d$altitude_m) + x * sd(d$altitude_m)) |> 
+  ggplot(aes(x_reverted, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", "#377EB8")) +
+  scale_fill_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", "#377EB8")) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Altitude (m)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+
+plot_scatter_bush <- 
+  rbind(est_bush_pred |> 
+        mutate(var = 'Bush cover', 
+               type = 'Seed predation'), 
+      est_bush_bird |> 
+        mutate(var = 'Bush cover', 
+               type = 'Bird frugivory')) |> 
+  mutate(x_revert = mean(d$bush_cover, na.rm = T) + x * 
+           sd(d$bush_cover, na.rm = T))|> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c("#984EA3", "#377EB8")) +
+  scale_fill_manual(values = c("#984EA3", "#377EB8")) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Bush cover (%)') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+  
+
+plot_scatter_latitude <- 
+  rbind(est_latitude_tot |> 
+        mutate(var = 'Latitude', 
+               type = 'Total frugivory')) |> 
+  mutate(x_revert = mean(d$lat) + x * sd(d$lat))|> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(alpha = 0.5, fill = "#4DAF4A") +
+  geom_line(color = "#4DAF4A") +
+  #scale_color_manual(values = c('#D92525', '#7A577A')) +
+  #scale_fill_manual(values = c('#D92525', '#7A577A')) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Latitude') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
 
 
+plot_scatter_size <- 
+  rbind(est_size_lizard |> 
+        mutate(var = 'Island size', 
+               type = 'Lizard frugivory'), 
+      est_size_pred |> 
+        mutate(var = 'Island size', 
+               type = 'Seed predation')) |> 
+  mutate(x_revert = (mean(d$island_size) + x * sd(d$island_size))) |> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(aes(fill = type), alpha = 0.5) +
+  geom_line(aes(color = type)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8")) +
+  scale_fill_manual(values = c("#E41A1C", "#377EB8")) +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Island size') +
+  labs(y = 'P(fruit consumption)', 
+       x = expression('Island size (km)'^2)) +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+
+plot_scatter_humanF <- 
+  rbind(est_foot_bird |> 
+        mutate(var = 'Human footprint', 
+               type = 'Bird frugivory')) |> 
+    mutate(x_revert = mean(d$human_footprint) + x * sd(d$human_footprint)) |> 
+  ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
+  geom_ribbon(fill = '#984EA3', alpha = 0.5) +
+  geom_line(color = '#984EA3') +
+  labs(y = 'P(fruit consumption)', 
+       x = 'Human footprint') +
+  #facet_wrap(~var, scales = 'free', nrow = 1) +
+  theme_classic() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 7),
+    legend.background = element_blank(),
+    legend.position = 'none',
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(2.5, 'mm')
+  )
+
+all_betas$significant <- 
+  all_betas$`P(beta > 0)` >= 0.8 | all_betas$`P(beta < 0)` >= 0.8
+
+plot_beta_continuous <- 
+  all_betas |> 
+  ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
+             color = `Fruit consumption`)) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.6), 
+                linewidth = 1.5, 
+                alpha = ifelse(all_betas$significant, 1, 0.3)) +
+  geom_point(position = position_dodge(width = 0.6), size = 2, 
+             alpha = ifelse(all_betas$significant, 1, 0.3)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", 
+                                "#377EB8", "#4DAF4A")) +
+  labs(y = expression(beta['slope']), x = 'Predictors') +
+  theme_classic() +
+  coord_flip() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 9),
+    legend.background = element_blank(),
+    legend.position = c(0.24, 0.92),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(3.5, 'mm')
+  )
+```
 
 
+```{r, fig.width=15, fig.height=30, fig.cap='Effect of biogeographical, landscape and local factors explaining the probability of frugivory interactions (i.e., dispersion + predations), seed dispersal and predation. (a) Slope coefficients showing the effect of predictor variables; the colors indicate the type of response variable; dots and error bars indicate 95 percentage credibility intervals and median value of the posterior distributions; arrows indicate the effects with an 80 percentage of probability of being above or below zero. (b) Regression plots of the effects pointed with arrows in panel a.'}
+
+layout2 <- 
+  '
+  aaa
+  aaa
+  bcd
+  fgh
+'
+
+plot_beta_continuous + theme(text = element_text(size = 14)) +
+  plot_scatter_isolation + 
+  plot_scatter_altitude + labs(y = NULL) + 
+  plot_scatter_bush + labs(y = NULL) +
+  plot_scatter_latitude + 
+  plot_scatter_size + labs(y = NULL) + 
+  plot_scatter_humanF + labs(y = NULL) +
+  plot_layout(design = layout2) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+```
 
 
+### Causal effects 
+
+```{r}
 
 
+causal_effect_latitude <-  # causal effect of latitude
+  lapply(1:4, FUN = 
+         function(x) {
+           
+           #interventions in SD
+           i <- c(-1, 0, 1, quantile(dat$lat, 0.1))[x] 
+           j <- c(0, 1, 2, quantile(dat$lat, 0.9))[x]
+           
+           d <-
+             cond_effects(posterior = post_latitude_tot,
+                          x_bar = dat$lat,
+                          slope = 'beta_lat',
+                          type = 'averaging',
+                          causal_effect = T,
+                          intervention1 = i,
+                          intervention2 = j)
+           
+           d[, 3]
+           
+         })
+
+causal_effect_latitude <- as_tibble(do.call('cbind', causal_effect_latitude))
+
+colnames(causal_effect_latitude)[4] <- paste('10th vs. 90th', ' percentile', 
+                                             sep = '\n')
+
+causal_effect_latitude <- 
+  pivot_longer(causal_effect_latitude, colnames(causal_effect_latitude), 
+               names_to = 'intervention', values_to = 'probability')
+
+causal_effect_latitude$frugivory_type <- 'Total frugivory'
+causal_effect_latitude$factor <- 'Latitude'
+#"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
+# lizard  predation. total      bird.    'disp
+  
+plot_causal_effect_latitude <- 
+  causal_effect_latitude |> 
+  group_by(intervention) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Latitude') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls)) +
+  geom_errorbar(width = 0, linewidth = 2, 
+                color = "#4DAF4A", alpha = 0.5) +
+  geom_point(size = 1.5, color = "#4DAF4A") +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35))
+  
+
+# isolation
+causal_effect_isolation <- 
+  lapply(1:3, FUN = 
+         function(x) {
+           
+           model <- list(post_isolation_tot, 
+                         post_isolation_pred, 
+                         post_isolation_lizard)[[x]]
+           model_lab <- c('Total frugivory', 
+                          'Seed predation', 
+                          'Lizard frugivory')[x]
+           
+           d <-  # causal effect of latitude
+             lapply(1:4, FUN = 
+                      function(x) {
+                        
+                        #interventions in SD
+                        i <- c(-1, 0, 1, quantile(dat$isolation, 0.1))[x] 
+                        j <- c(0, 1, 2, quantile(dat$isolation, 0.9))[x]
+                        
+                        d <-
+                          cond_effects(posterior = model,
+                                       x_bar = dat$isolation,
+                                       slope = 'beta_I_isolation',
+                                       type = 'averaging',
+                                       causal_effect = T,
+                                       intervention1 = i,
+                                       intervention2 = j)
+                        
+                        d[, 3]
+                        
+                      })
+           
+           d <- as_tibble(do.call('cbind', d))
+           
+           colnames(d)[4] <- paste('10th vs. 90th', ' percentile', 
+                                   sep = '\n')
+           
+           d <- 
+             pivot_longer(d, colnames(d), 
+                          names_to = 'intervention', values_to = 'probability')
+           
+           d$frugivory_type <- model_lab
+           d$factor <- 'Island isolation'
+           d
+         })
+
+causal_effect_isolation <- do.call('rbind', causal_effect_isolation)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+plot_causal_isolation <- 
+causal_effect_isolation |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Island isolation') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35),
+        legend.position = 'none')
 
 
+# size of island
+
+causal_effect_size <- 
+  lapply(1:2, FUN = 
+           function(x) {
+             
+             model <- list(post_size_pred, 
+                           post_size_lizard)[[x]]
+             model_lab <- c('Seed predation', 
+                            'Lizard frugivory')[x]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$island_size, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$island_size, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$island_size,
+                                         slope = 'beta_I_size',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', ' percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Island size'
+             d
+           })
+
+causal_effect_size <- do.call('rbind', causal_effect_size)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+plot_causal_size <- 
+causal_effect_size |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Island size') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35),
+        legend.position = 'none'
+        )
+
+# landscape ==
+
+# altitude
 
 
+causal_effect_alt <- 
+  lapply(1:4, FUN = 
+           function(k) {
+             
+             model <- list(post_altitude_pred, 
+                           post_altitude_disp,
+                           post_altitude_bird,
+                           post_altitude_lizard)[[k]]
+             
+             model_lab <- c('Seed predation', 
+                            'Seed dispersal',
+                            'Bird frugivory',
+                            'Lizard frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$altitude_m, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$altitude_m, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$altitude_m,
+                                         slope = 'beta_I_alt',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Altitude'
+             d
+           })
+
+causal_effect_alt <- do.call('rbind', causal_effect_alt)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+plot_causal_alt <- 
+causal_effect_alt |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'), 
+            var = 'Island altitude') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", '#FF7F00', '#377EB8')) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+# human footprint
+
+causal_effect_foot <- 
+  lapply(1, FUN = 
+           function(k) {
+             
+             model <- list(post_footprint_bird)[[k]]
+             
+             model_lab <- c('Bird frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$human_footprint, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$human_footprint, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$human_footprint,
+                                         slope = 'beta_H_foot',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Human footprint'
+             d
+           })
+
+causal_effect_foot <- do.call('rbind', causal_effect_foot)
 
 
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+plot_causal_foot <- 
+causal_effect_foot |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'),
+            var = 'Human footprint') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+# native vegetation
+# ****no effect
+
+# bush cover
+
+causal_effect_bush <- 
+  lapply(1:2, FUN = 
+           function(k) {
+             
+             model <- list(post_bush_pred, 
+                           post_bush_bird)[[k]]
+             
+             model_lab <- c('Seed predation', 
+                            'Bird frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(bush_merge, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(bush_merge, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = bush_merge,
+                                         slope = 'beta_bush',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Bush cover'
+             d
+           })
+
+causal_effect_bush <- do.call('rbind', causal_effect_bush)
 
 
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+plot_causal_bush <- 
+causal_effect_bush |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'), 
+            var = 'Bush cover') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3", "#377EB8")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
 
 
+```
+
+```{r, fig.width= 15, fig.height=15, }
+p_layout <- 
+  '
+  bbcc
+  ddee
+  ffgg
+'
+
+plot_causal_effect_latitude + labs(x = "") + theme(text = element_text(size = 14)) +
+  plot_causal_isolation + labs(y = "", x = "") + 
+  plot_causal_size + labs(x = "") + 
+  plot_causal_alt + labs(y = "", x = '') + 
+  plot_causal_foot + plot_causal_bush + labs(y = "") + 
+  plot_layout(design = p_layout) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')') &
+  theme(plot.tag.position = c(0.1, 1))
+```
 
 
+```{r}
+causal_effects_estimates <- 
+  lapply(ls()[grep('^causal', ls())][-7], FUN = 
+         function(x) {
+           
+           d <- get(x)
+           
+           d |>
+             group_by(intervention, frugivory_type) |>
+             transmute(factor = factor,
+                       mean_effect = median(probability),
+                       li = quantile(probability, 0.025),
+                       ls = quantile(probability, 0.975),
+                       sd_effect = sd(probability),
+                       `p(causal effect > 0)` = mean(probability > 0),
+                       `p(causal effect < 0)` = mean(probability < 0)) |>
+             unique()
+         })
 
+causal_effects_estimates <- do.call('rbind', causal_effects_estimates)
 
+```
 
+```{r}
+label <- 'Causal effect of main factors affecting the probability of fruit consumption on islands worldwide'
 
+knitr::kable(causal_effects_estimates, 
+             caption = label, 
+             digits = 5) |> 
+  kable_styling(font_size = 5)
 
+```
+
+# S14. Computational environment
+
+```{r}
+sessionInfo()
+```
 
 
 
