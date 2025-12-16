@@ -2,7 +2,7 @@
 
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
-         'cowplot', 'bayesplot', 'patchwork'), 
+         'cowplot', 'bayesplot', 'patchwork', 'ggh4x'), 
        library, character.only = T)
 
 source('functions_mod_diagnostics.r')
@@ -13,6 +13,9 @@ data <- readRDS('data.rds')
 
 codes <- 
   lapply(data$codes, function(x) x[order(x$code), ])
+
+codes$real$island <- c('Afrotropics', 'Australasia', 'Indomalaya', 
+                       'Nearctic', 'Neotropics', 'Oceania', 'Palearctic')
 
 d <- data$data
 dis_matrix <- data$dist_islands
@@ -140,7 +143,11 @@ cond_effects <- function(posterior,
                          x_bar, 
                          slope, 
                          type = 'averaging', 
-                         n = 100) {
+                         n = 100,
+                         causal_effect = F, 
+                         intervention1,
+                         intervention2
+                         ) {
   
   x_seq <- seq(min(x_bar), max(x_bar), length.out = n)
   
@@ -153,54 +160,93 @@ cond_effects <- function(posterior,
   eco <- apply(posterior$p_ecoR, 1, mean)
   biome <- apply(posterior$p_biome, 1, mean)
   
-  y <- lapply(seq_along(x_seq), FUN = 
-                function(i) {
-                  
-                  x <- x_seq[i]
-                  
-                  est <- 
-                    with(posterior, 
-                         {
-                           inv_logit(alpha[[1]] +
-                                       beta[[slope]] * x +
-                                       type_is +
-                                       island +
-                                       country +
-                                       grid +
-                                       plant +
-                                       realm +
-                                       eco +
-                                       biome)
-                         })
-                  
-                  if (type == 'averaging') {
-                    tibble(x = x,
-                           y = median(est),
-                           li = quantile(est, 0.025),
-                           ls = quantile(est, 0.975))
+  if (causal_effect) {
+    
+    causal_effect <- 
+    lapply(c(intervention1, intervention2), FUN = 
+             function(x) {
+               est <- 
+                 with(posterior, 
+                      {
+                        inv_logit(alpha[[1]] +
+                                    beta[[slope]] * x +
+                                    type_is +
+                                    island +
+                                    country +
+                                    grid +
+                                    plant +
+                                    realm +
+                                    eco +
+                                    biome)
+                      })
+               
+               tibble(x = est)
+             })
+    
+    causal_effect <- do.call('cbind', causal_effect)
+    colnames(causal_effect) <- c('intervention_1', 'intervention_2')
+    causal_effect$contrast <-
+      causal_effect[[2]] - causal_effect[[1]]
+    
+    colnames(causal_effect)[3] <- paste(intervention1, 'SD', 
+                                        '\nvs.', 
+                                        intervention2, 'SD')
+
+    as_tibble(causal_effect)
+    
+  } else {
+    
+    y <- lapply(seq_along(x_seq), FUN = 
+                  function(i) {
                     
-                  } else if (type == 'random') {
+                    x <- x_seq[i]
                     
-                    set.seed(23061993)
-                    est <- sample(est, 100, replace = F)
-                    pred <- rbinom(length(est), 15, est)
-                    tibble(x = x,
-                           y = median(pred),
-                           li = quantile(pred, 0.025),
-                           ls = quantile(pred, 0.975),
-                           indx = i,
-                           type = 'Predicted')
+                    est <- 
+                      with(posterior, 
+                           {
+                             inv_logit(alpha[[1]] +
+                                         beta[[slope]] * x +
+                                         type_is +
+                                         island +
+                                         country +
+                                         grid +
+                                         plant +
+                                         realm +
+                                         eco +
+                                         biome)
+                           })
                     
-                  } else {
+                    if (type == 'averaging') {
+                      tibble(x = x,
+                             y = median(est),
+                             li = quantile(est, 0.025),
+                             ls = quantile(est, 0.975))
+                      
+                    } else if (type == 'random') {
+                      
+                      set.seed(23061993)
+                      est <- sample(est, 100, replace = F)
+                      pred <- rbinom(length(est), 15, est)
+                      tibble(x = x,
+                             y = median(pred),
+                             li = quantile(pred, 0.025),
+                             ls = quantile(pred, 0.975),
+                             indx = i,
+                             type = 'Predicted')
+                      
+                    } else {
+                      
+                      tibble(x = x,
+                             y = est,
+                             indx = i)
+                    }
                     
-                    tibble(x = x,
-                           y = est,
-                           indx = i)
-                  }
-                  
-                })
+                  })
+    
+    do.call('rbind', y)
+    
+  }
   
-  do.call('rbind', y)
   
 }
 
@@ -351,6 +397,24 @@ names(post_latitude_tot) <- c('alpha',
                           'p_plant', 'p_realm', 
                           'p_ecoR', 'p_biome')
 
+post_latitude_tot
+
+avg_prov <- 
+  with(post_latitude_tot, 
+     {
+       inv_logit(alpha[[1]] +
+                   apply(TI, 1, median) +
+                   apply(p_realm, 1, median) +
+                   apply(p_island, 1, median) +
+                   apply(p_country, 1, median) +
+                   apply(p_grid, 1, median) +
+                   apply(p_plant, 1, median) +
+                   apply(p_ecoR, 1, median) +
+                   apply(p_biome, 1, median))
+     })
+
+plot(density(avg_prov))
+quantile(avg_prov, c(0.025, 0.5, 0.975))
 
 
 # =============== Birds  ======================
@@ -4311,7 +4375,7 @@ islands_post <-
            d$model <- c('Bird frugivory', 
                         'Seed dispersal', 'Lizard frugivory', 
                         'Seed predation', 
-                         'Total frugivory')[[x]]
+                         'Frugivory')[[x]]
            d
          })
 
@@ -4344,49 +4408,50 @@ plots_islands_realm <-
            })
 
 
+plots_islands_realm$post_latitude_tot <- 
+  plots_islands_realm$post_latitude_tot +
+  labs(x = NULL, y = NULL) +
+  theme(legend.position = 'none')
+
 plots_islands_realm$post_latitude_disp <- 
   plots_islands_realm$post_latitude_disp +
   labs(x = NULL, y = NULL) +
-  theme(legend.position = 'none', 
-        axis.ticks.x = element_blank())
+  theme(legend.position = 'none')
 
 plots_islands_realm$post_latitude_pred <- 
   plots_islands_realm$post_latitude_pred +
   labs(y = NULL) +
-  theme(legend.position = 'none', 
-        axis.ticks.x = element_blank())
+  theme(legend.position = 'none')
 
 plots_islands_realm$post_latitude_bird <- 
   plots_islands_realm$post_latitude_bird +
-  theme(legend.position = 'none', 
-        axis.ticks.x = element_blank())
+  theme(legend.position = 'none')
 
 plots_islands_realm$post_latitude_lizard <- 
   plots_islands_realm$post_latitude_lizard +
   labs(y = NULL) +
-  theme(legend.position = 'none', 
-        axis.ticks.x = element_blank())
+  theme(legend.position = 'none')
 
-plots_islands_realm$post_latitude_tot <- 
-  ggplot(data = islands_post$post_latitude_tot, 
-         aes(fct_reorder(island, mu, .fun = 'max'), mu, 
-             ymin = li, ymax = ls, 
-             color = realm)) +
-  labs(y = 'P(fruit consumption)', x = NULL) +
-  geom_hline(yintercept = 0.5, linetype = 3) +
-  geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
-  scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
-  geom_point(size = 1.5) +
-  theme_classic() +
-  facet_wrap(~model) +
-  theme(axis.text.x = element_blank(), legend.title = element_blank(), 
-        legend.position = c(0.15, 0.85), 
-        legend.box.background = element_blank(), 
-        legend.key.size = unit(4, 'mm'),
-        text = element_text(family = 'Times New Roman'),
-        strip.background = element_blank(), 
-        axis.line = element_line(linewidth = 0.25), 
-        axis.ticks = element_line(linewidth = 0.25))
+# plots_islands_realm$post_latitude_tot <- 
+#   ggplot(data = islands_post$post_latitude_tot, 
+#          aes(fct_reorder(island, mu, .fun = 'max'), mu, 
+#              ymin = li, ymax = ls, 
+#              color = realm)) +
+#   labs(y = 'P(fruit consumption)', x = NULL) +
+#   geom_hline(yintercept = 0.5, linetype = 3) +
+#   geom_errorbar(width = 0, linewidth = 1.5, alpha = 0.6) +
+#   scale_color_manual(values = RColorBrewer::brewer.pal(7, 'Set2')) +
+#   geom_point(size = 1.5) +
+#   theme_classic() +
+#   facet_wrap(~model) +
+#   theme(axis.text.x = element_blank(), legend.title = element_blank(), 
+#         legend.position = c(0.15, 0.85), 
+#         legend.box.background = element_blank(), 
+#         legend.key.size = unit(4, 'mm'),
+#         text = element_text(family = 'Times New Roman'),
+#         strip.background = element_blank(), 
+#         axis.line = element_line(linewidth = 0.25), 
+#         axis.ticks = element_line(linewidth = 0.25))
 
 
 
@@ -4407,7 +4472,7 @@ plots_islands_realm$post_latitude_tot +
                   tag_prefix = '(', 
                   tag_suffix = ')')
 
-ggsave('figure_2.jpeg', width = 18, height = 18, units = 'cm', 
+ggsave('Figure_2.jpeg', width = 18, height = 18, units = 'cm', 
        dpi = 500)
 
 
@@ -4707,6 +4772,95 @@ plot_grid(plot_grid(NULL,
 ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units = 'cm')
 
 
+avg_realms_est <- 
+  rbind(full_join(realm_tot, codes$real, 'code') |> 
+        mutate(type = 'Frugivory'), 
+      full_join(realm_disp, codes$real, 'code') |> 
+        mutate(type = 'Seed\ndispersal'),
+      full_join(realm_bird, codes$real, 'code') |> 
+        mutate(type = 'Bird\nfrugivory'),
+      full_join(realm_lizard, codes$real, 'code') |> 
+        mutate(type = 'Lizard\nfrugivory'),
+      full_join(realm_pred, codes$real, 'code') |> 
+        mutate(type = 'Seed\npredation')) |> 
+  group_by(type, island) |> 
+  transmute(mu = median(y), 
+            li = quantile(y, 0.025), 
+            ls = quantile(y, 0.975)) |> 
+  unique()
+
+avg_realms_est <- 
+  lapply(split(avg_realms_est, avg_realms_est$type), 
+       FUN = 
+         function(x) {
+           x <- x[order(x$mu, decreasing = F), ]
+           labs <- x$island
+           x$island <- factor(x$island, 
+                               levels = labs)
+           x
+         }) 
+
+avg_realms_est <- do.call('rbind', avg_realms_est)
+
+levels(avg_realms_est$island)
+
+
+
+avg_realms_plot <- 
+  avg_realms_est |> 
+  ggplot(aes(fct_reorder(type, mu, .desc = T), 
+             mu, ymin = li, ymax = ls, color = island)) +
+  geom_errorbar(width = 0, position = position_dodge(width = 0.8), 
+                linewidth = 1.5, alpha = 0.4) +
+  geom_point(position = position_dodge(width = 0.8), size = 2) +
+  scale_color_manual(values = c("#A6D854", "#66C2A5", "#FC8D62", 
+                                "#E5C494", "#E78AC3", "#FFD92F", "#8DA0CB")) +
+  labs(y = 'P(fruit consumption)', x = '') +
+  theme_classic() +
+  lims(y = c(0, 1)) +
+  geom_hline(yintercept = 0.5, linetype = 3) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_blank(),
+    axis.line = element_line(linewidth = 0.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8.5),
+    legend.position = c(0.9, 0.85), 
+    legend.background = element_blank(),
+    legend.box.background = element_blank(), 
+    legend.key.size = unit(4, 'mm'), 
+    text = element_text(family = 'Times New Roman')
+  )
+
+
+
+layout <- 
+  '
+  aab
+  aac
+  dfg
+'
+
+avg_realms_plot +
+  plots_islands_realm$post_latitude_tot +
+  plots_islands_realm$post_latitude_disp +
+  plots_islands_realm$post_latitude_pred + 
+  labs(y = 'P(fruit consumption)', x = 'Islands') +
+  plots_islands_realm$post_latitude_bird +
+  labs(y = '') +
+  plots_islands_realm$post_latitude_lizard +
+  plot_layout(design = layout, 
+              widths = c(1, 1, 1, 1, 1, 0.5)) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')')
+
+ggsave('figure_2.jpeg', width = 20, height = 18, units = 'cm', 
+       dpi = 500)
+
+
 
 # estimations
 
@@ -4726,14 +4880,19 @@ island_tables2 <- split(island_tables,
                         list(island_tables$realm, 
                              island_tables$model))
 
-lapply(island_tables2, FUN = 
+island_tables2 <- 
+  lapply(island_tables2, FUN = 
          function(x) {
            x[order(x$mu, decreasing = T), ]
          })
 
+island_tables2$`Neotropical.Total frugivory` |> print(n = 100)
+
 island_tables2$Australasia$island
 # probability among types of islands
-rbind(full_join(TI_disp, codes$island_type, 'code') |> 
+rbind(full_join(TI_tot, codes$island_type, 'code') |> 
+        mutate(type = 'Total frugivory'),
+      full_join(TI_disp, codes$island_type, 'code') |> 
         mutate(type = 'Seed dispersal'),
       full_join(TI_bird, codes$island_type, 'code') |> 
         mutate(type = "Bird frugivory"),
@@ -4814,7 +4973,7 @@ lapply(1, FUN =
 
 # average probabilities 
 rbind(full_join(realm_tot, codes$real, 'code') |> 
-        mutate(type = 'Total frugivory'), 
+        mutate(type = 'Total frugivory'),
       full_join(realm_disp, codes$real, 'code') |> 
         mutate(type = 'Seed dispersal'),
       full_join(realm_bird, codes$real, 'code') |> 
@@ -4871,7 +5030,8 @@ lapply(1, FUN =
                     })
          })
 
-lapply(1, FUN = 
+cont_realms_islands <- 
+  lapply(1, FUN = 
          function(x) {
            
            d <- list(realm_tot, realm_disp, realm_pred,
@@ -4934,11 +5094,23 @@ lapply(1, FUN =
 
            d[d$probability != 0, ]
            d
-         })[[1]] |> print(n = 200) 
+         })[[1]] 
+
+
+lapply(split(cont_realms_islands, 
+             cont_realms_islands$type), FUN = 
+         function(x) {
+           lapply(codes$real$island[c(5)], FUN = 
+                    function(j) {
+                      print(j)
+                      x <- x[grep(j, x$Comparison), ]
+                      x[order(x$contrast, decreasing = T), ]
+                    })
+         })$`Bird frugivory`
 
 
 
-
+cont_realms_islands
 # Continuous variabes ====================
 
 # latitude (mu and CI)
@@ -4949,7 +5121,7 @@ all_betas <-
       slope_pars('post_isolation', 'beta_I_isolation') |> 
         mutate(predictor = 'Island isolation'), 
       slope_pars('post_size', 'beta_I_size') |> 
-        mutate(predictor = 'Island size'), 
+        mutate(predictor = 'Island area'), 
       slope_pars('post_altitude', 'beta_I_alt') |> 
         mutate(predictor = 'Island altitude'), 
       slope_pars('post_footprint', 'beta_H_foot') |> 
@@ -4969,6 +5141,79 @@ est_latitude_tot <- cond_effects(posterior = post_latitude_tot,
                                  type = 'averaging',
                                  n = 100)
 
+causal_effect_latitude <-  # causal effect of latitude
+  lapply(1:4, FUN = 
+         function(x) {
+           
+           #interventions in SD
+           i <- c(-1, 0, 1, quantile(dat$lat, 0.1))[x] 
+           j <- c(0, 1, 2, quantile(dat$lat, 0.9))[x]
+           
+           d <-
+             cond_effects(posterior = post_latitude_tot,
+                          x_bar = dat$lat,
+                          slope = 'beta_lat',
+                          type = 'averaging',
+                          causal_effect = T,
+                          intervention1 = i,
+                          intervention2 = j)
+           
+           d[, 3]
+           
+         })
+
+causal_effect_latitude <- as_tibble(do.call('cbind', causal_effect_latitude))
+
+colnames(causal_effect_latitude)[4] <- paste('10th vs. 90th', ' percentile', 
+                                             sep = '\n')
+
+causal_effect_latitude <- 
+  pivot_longer(causal_effect_latitude, colnames(causal_effect_latitude), 
+               names_to = 'intervention', values_to = 'probability')
+
+causal_effect_latitude$frugivory_type <- 'Total frugivory'
+causal_effect_latitude$factor <- 'Latitude'
+#"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
+# lizard  predation. total      bird.    'disp
+
+beta_latitude <- 
+  post_latitude_tot$beta |> 
+  mutate(frugivory_type = 'Total frugivory') |> 
+  rename(x = beta_lat) |> 
+  ggplot(aes(x)) +
+  geom_density(fill = "#4DAF4A", alpha = 0.45, 
+               linewidth = 0) +
+  labs(x = expression(beta['latitude']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        text = element_text(family = 'Times New Roman'))
+
+plot_causal_effect_latitude <- 
+  causal_effect_latitude |> 
+  group_by(intervention) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Latitude') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls)) +
+  geom_errorbar(width = 0, linewidth = 2, 
+                color = "#E41A1C", alpha = 0.5) +
+  geom_point(size = 1.5, color = "#E41A1C") +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'))
+  
+
 # isolation
 
 names(post_isolation_tot)[2] <- 'beta'
@@ -4978,7 +5223,6 @@ est_isolation_tot <- cond_effects(posterior = post_isolation_tot,
                                   slope = 'beta_I_isolation',
                                   type = 'averaging',
                                   n = 100)
-
 
 
 est_isolation_pred <- cond_effects(posterior = post_isolation_pred,
@@ -4992,6 +5236,109 @@ est_isolation_lizard <- cond_effects(posterior = post_isolation_lizard,
                                    slope = 'beta_I_isolation',
                                    type = 'averaging',
                                    n = 100)
+
+causal_effect_isolation <- 
+  lapply(1:3, FUN = 
+         function(x) {
+           
+           model <- list(post_isolation_tot, 
+                         post_isolation_pred, 
+                         post_isolation_lizard)[[x]]
+           model_lab <- c('Total frugivory', 
+                          'Seed predation', 
+                          'Lizard frugivory')[x]
+           
+           d <-  # causal effect of latitude
+             lapply(1:4, FUN = 
+                      function(x) {
+                        
+                        #interventions in SD
+                        i <- c(-1, 0, 1, quantile(dat$isolation, 0.1))[x] 
+                        j <- c(0, 1, 2, quantile(dat$isolation, 0.9))[x]
+                        
+                        d <-
+                          cond_effects(posterior = model,
+                                       x_bar = dat$isolation,
+                                       slope = 'beta_I_isolation',
+                                       type = 'averaging',
+                                       causal_effect = T,
+                                       intervention1 = i,
+                                       intervention2 = j)
+                        
+                        d[, 3]
+                        
+                      })
+           
+           d <- as_tibble(do.call('cbind', d))
+           
+           colnames(d)[4] <- paste('10th vs. 90th', ' percentile', 
+                                   sep = '\n')
+           
+           d <- 
+             pivot_longer(d, colnames(d), 
+                          names_to = 'intervention', values_to = 'probability')
+           
+           d$frugivory_type <- model_lab
+           d$factor <- 'Island isolation'
+           d
+         })
+
+causal_effect_isolation <- do.call('rbind', causal_effect_isolation)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+beta_isolation <- 
+rbind(post_isolation_tot$beta |> 
+        mutate(frugivory_type = 'Total frugivory') |> 
+        rename(x = beta_I_isolation), 
+      post_isolation_pred$beta |> 
+        mutate(frugivory_type = 'Seed predation') |> 
+        rename(x = beta_I_isolation), 
+      post_isolation_lizard$beta |> 
+        mutate(frugivory_type = 'Lizard frugivory') |> 
+        rename(x = beta_I_isolation)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island isolation']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none')
+
+plot_causal_isolation <- 
+causal_effect_isolation |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Island isolation') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none')
 
 
 # size of island
@@ -5007,6 +5354,117 @@ est_size_lizard <- cond_effects(posterior = post_size_lizard,
                               slope = 'beta_I_size',
                               type = 'averaging',
                               n = 100)
+
+
+causal_effect_size <- 
+  lapply(1:2, FUN = 
+           function(x) {
+             
+             model <- list(post_size_pred, 
+                           post_size_lizard)[[x]]
+             model_lab <- c('Seed predation', 
+                            'Lizard frugivory')[x]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$island_size, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$island_size, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$island_size,
+                                         slope = 'beta_I_size',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', ' percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Island size'
+             d
+           })
+
+causal_effect_size <- do.call('rbind', causal_effect_size)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+beta_size <- 
+  rbind(post_size_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_I_size), 
+        post_size_lizard$beta |> 
+          mutate(frugivory_type = 'Lizard frugivory') |> 
+          rename(x = beta_I_size)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island size']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c(c("#E41A1C", "#377EB8"))) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none'
+        )
+
+plot_causal_size <- 
+causal_effect_size |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            var = 'Island size') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none'
+        )
+
+beta_latitude + plot_causal_effect_latitude +
+  beta_isolation + plot_causal_isolation + 
+   beta_size + plot_causal_size +
+  plot_layout(design = 
+                '
+                ab
+                cd
+                fg
+              ')
 
 # landscape ==
 
@@ -5040,6 +5498,145 @@ est_alt_lizard <- cond_effects(posterior = post_altitude_lizard,
                              type = 'averaging',
                              n = 100)
 
+
+causal_effect_alt <- 
+  lapply(1:4, FUN = 
+           function(k) {
+             
+             model <- list(post_altitude_pred, 
+                           post_altitude_disp,
+                           post_altitude_bird,
+                           post_altitude_lizard)[[k]]
+             
+             model_lab <- c('Seed predation', 
+                            'Seed dispersal',
+                            'Bird frugivory',
+                            'Lizard frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$altitude_m, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$altitude_m, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$altitude_m,
+                                         slope = 'beta_I_alt',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Altitude'
+             d
+           })
+
+causal_effect_alt <- do.call('rbind', causal_effect_alt)
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+beta_altitude <- 
+  rbind(post_altitude_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_I_alt),
+        post_altitude_disp$beta |> 
+          mutate(frugivory_type = 'Seed dispersal') |> 
+          rename(x = beta_I_alt),
+        post_altitude_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_I_alt), 
+        post_altitude_lizard$beta |> 
+          mutate(frugivory_type = 'Lizard frugivory') |> 
+          rename(x = beta_I_alt)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['island altitude']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3", "#E41A1C", '#FF7F00', '#377EB8')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none'
+  )
+
+plot_causal_alt <- 
+causal_effect_alt |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'), 
+            var = 'Island altitude') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", '#FF7F00', '#377EB8')) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+beta_latitude + plot_causal_effect_latitude +
+  beta_isolation + plot_causal_isolation + 
+  beta_size + plot_causal_size +
+  beta_altitude + plot_causal_alt +
+  plot_layout(design = 
+                '
+                ab
+                cd
+                fg
+                hi
+              ')
+
+
+
+
 # human footprint
 
 est_foot_bird <- cond_effects(posterior = post_footprint_bird,
@@ -5048,6 +5645,126 @@ est_foot_bird <- cond_effects(posterior = post_footprint_bird,
                                type = 'averaging',
                                n = 100)
 
+causal_effect_foot <- 
+  lapply(1, FUN = 
+           function(k) {
+             
+             model <- list(post_footprint_bird)[[k]]
+             
+             model_lab <- c('Bird frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(dat$human_footprint, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(dat$human_footprint, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = dat$human_footprint,
+                                         slope = 'beta_H_foot',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Human footprint'
+             d
+           })
+
+causal_effect_foot <- do.call('rbind', causal_effect_foot)
+
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+beta_foot <- 
+  rbind(post_footprint_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_H_foot)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['Human footprint']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none'
+  )
+
+plot_causal_foot <- 
+causal_effect_foot |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'),
+            var = 'Human footprint') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+beta_latitude + plot_causal_effect_latitude +
+  beta_isolation + plot_causal_isolation + 
+  beta_size + plot_causal_size +
+  beta_altitude + plot_causal_alt +
+  beta_foot + plot_causal_foot
+  plot_layout(design = 
+                '
+                abcd
+                fghi
+                jk##
+              ')
 
 
 # native vegetation
@@ -5072,6 +5789,136 @@ est_bush_bird <- cond_effects(posterior = post_bush_bird,
                               slope = 'beta_bush',
                               type = 'averaging',
                               n = 100)
+
+
+causal_effect_bush <- 
+  lapply(1:2, FUN = 
+           function(k) {
+             
+             model <- list(post_bush_pred, 
+                           post_bush_bird)[[k]]
+             
+             model_lab <- c('Seed predation', 
+                            'Bird frugivory')[k]
+             
+             d <-  # causal effect of latitude
+               lapply(1:4, FUN = 
+                        function(x) {
+                          
+                          #interventions in SD
+                          i <- c(-1, 0, 1, quantile(bush_merge, 0.1))[x] 
+                          j <- c(0, 1, 2, quantile(bush_merge, 0.9))[x]
+                          
+                          d <-
+                            cond_effects(posterior = model,
+                                         x_bar = bush_merge,
+                                         slope = 'beta_bush',
+                                         type = 'averaging',
+                                         causal_effect = T,
+                                         intervention1 = i,
+                                         intervention2 = j)
+                          
+                          d[, 3]
+                          
+                        })
+             
+             d <- as_tibble(do.call('cbind', d))
+             
+             colnames(d)[4] <- paste('10th vs. 90th', 'percentile', 
+                                     sep = '\n')
+             
+             d <- 
+               pivot_longer(d, colnames(d), 
+                            names_to = 'intervention', values_to = 'probability')
+             
+             d$frugivory_type <- model_lab
+             d$factor <- 'Bush cover'
+             d
+           })
+
+causal_effect_bush <- do.call('rbind', causal_effect_bush)
+
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+beta_bush <- 
+  rbind(post_bush_bird$beta |> 
+          mutate(frugivory_type = 'Bird frugivory') |> 
+          rename(x = beta_bush), 
+        post_bush_pred$beta |> 
+          mutate(frugivory_type = 'Seed predation') |> 
+          rename(x = beta_bush)) |> 
+  ggplot(aes(x, fill = frugivory_type)) +
+  geom_density(linewidth = 0, alpha = 0.4) +
+  labs(x = expression(beta['Bush cover']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 3) +
+  scale_fill_manual(values = c("#984EA3", "#377EB8")) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title = element_text(size = 11), 
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none'
+  )
+
+plot_causal_bush <- 
+causal_effect_bush |> 
+  group_by(intervention, frugivory_type) |> 
+  transmute(mu = median(probability), 
+            li = quantile(probability, 0.025), 
+            ls = quantile(probability, 0.975), 
+            type = ifelse(grepl('^Min', intervention), 
+                          'b', 'a'), 
+            var = 'Bush cover') |> 
+  unique() |> 
+  ggplot(aes(intervention, mu, ymin = li, ymax = ls, 
+             color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3", "#377EB8")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var) +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = 'z-score difference', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        #strip.text = element_blank(),
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman'), 
+        legend.position = 'none',
+        axis.title = element_text(size = 10)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+beta_latitude + plot_causal_effect_latitude +
+  beta_isolation + plot_causal_isolation + 
+  beta_size + plot_causal_size +
+  beta_altitude + plot_causal_alt +
+  beta_foot + plot_causal_foot +
+  beta_bush + plot_causal_bush
+plot_layout(design = 
+              '
+                abcd
+                fghi
+                jklm
+              ')
+
+
 
 plot_scatter_isolation <- 
   rbind(est_isolation_tot |> 
@@ -5278,7 +6125,7 @@ all_betas <-
         slope_pars('post_isolation', 'beta_I_isolation') |> 
           mutate(predictor = 'Island  \nisolation'), 
         slope_pars('post_size', 'beta_I_size') |> 
-          mutate(predictor = 'Island\nsize  '), 
+          mutate(predictor = 'Island\narea  '), 
         slope_pars('post_altitude', 'beta_I_alt') |> 
           mutate(predictor = 'Island \naltitude'), 
         slope_pars('post_footprint', 'beta_H_foot') |> 
@@ -5291,6 +6138,15 @@ all_betas <-
 all_betas$significant <- 
   all_betas$`P(beta > 0)` >= 0.8 | all_betas$`P(beta < 0)` >= 0.8
 
+all_betas$`Fruit consumption`[grep('^Total', all_betas$`Fruit consumption`)] <- 
+  'Frugivory'
+
+all_betas[all_betas$significant == T, ]
+
+unique(all_betas[all_betas$significant == T, ]$predictor)
+
+split(all_betas[all_betas$significant == T, ], 
+      all_betas[all_betas$significant == T, ]$`Fruit consumption`)
 #"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
 # lizard  predation. total      bird.    'disp
 plot_beta_continuous <- 
@@ -5298,10 +6154,10 @@ plot_beta_continuous <-
   ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
              color = `Fruit consumption`)) +
   geom_hline(yintercept = 0, linetype = 3) +
-  geom_errorbar(width = 0, position = position_dodge(width = 0.4), 
+  geom_errorbar(width = 0, position = position_dodge(width = 0.6), 
                 linewidth = 1.5, 
-                alpha = ifelse(all_betas$significant, 1, 0.3)) +
-  geom_point(position = position_dodge(width = 0.4), size = 2, 
+                alpha = ifelse(all_betas$significant, 1, 0.2)) +
+  geom_point(position = position_dodge(width = 0.6), size = 2, 
              alpha = ifelse(all_betas$significant, 1, 0.3)) +
   scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", 
                                 "#377EB8", "#4DAF4A")) +
@@ -5345,7 +6201,7 @@ plot_beta_continuous <-
   #                    '#7A577A',
   #                    '#D92525'),
   #          linewidth = 0.5) +
-  labs(y = expression(beta), x = 'Predictors') +
+  labs(y = expression(beta['slope']), x = 'Predictors') +
   theme_classic() +
   coord_flip() +
   theme(
@@ -5355,13 +6211,17 @@ plot_beta_continuous <-
     panel.border = element_blank(),
     axis.line = element_line(linewidth = 0.25),
     legend.title = element_blank(),
-    legend.text = element_text(size = 9),
+    legend.text = element_text(size = 8),
     legend.background = element_blank(),
-    legend.position = c(0.85, 0.1),
+    legend.position = c(0.2, 0.92),
     legend.box.background = element_blank(), 
     legend.key.size = unit(3, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'Times New Roman', size = 12)
   )
+
+plot_beta_continuous
+  
+ggsave('figure_3.jpg', width = 10, height = 12.5, units = 'cm', dpi = 500)
 
 layout2 <- 
   '
@@ -5386,5 +6246,176 @@ plot_beta_continuous +
 
 ggsave('effects_plot.jpg', width = 15, height = 22, units = 'cm', dpi = 1e3)
 
+p_layout <- 
+  '
+  bbcc
+  ddee
+  ffgg
+'
+
+plot_causal_effect_latitude + labs(x = "") + 
+  plot_causal_isolation + labs(y = "", x = "") + 
+  plot_causal_size + labs(x = "") + 
+  plot_causal_alt + labs(y = "", x = '') + 
+  plot_causal_foot + plot_causal_bush + labs(y = "") + 
+  plot_layout(design = p_layout) +
+  plot_annotation(tag_levels = 'a', 
+                  tag_prefix = '(', 
+                  tag_suffix = ')') &
+  theme(plot.tag.position = c(0.1, 1))
+
+
+
+tribble(~code_color, ~group, 
+        "#E41A1C", 'lizard',
+        "#377EB8", 'seed predation',
+        "#4DAF4A", 'total frugivory',
+        "#984EA3", 'bird frugivory',
+        "#FF7F00", 'seed dispersal')
+
+c("#984EA3", "#E41A1C", "#FF7F00", 
+  "#377EB8", "#4DAF4A")
+
+causal_df <- 
+  rbind(causal_effect_latitude |> 
+        group_by(intervention) |> 
+        transmute(frugivory_type = 'Total frugivory',
+                  mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975), 
+                  var = 'Latitude') |> 
+        unique(),
+      causal_effect_isolation |> 
+        group_by(intervention, frugivory_type) |> 
+        transmute(mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975), 
+                  var = 'Island isolation') |> 
+        unique(), 
+      causal_effect_size |> 
+        group_by(intervention, frugivory_type) |> 
+        transmute(mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975), 
+                  var = 'Island size') |> 
+        unique(), 
+      causal_effect_alt |> 
+        group_by(intervention, frugivory_type) |> 
+        transmute(mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975),
+                  var = 'Island altitude') |> 
+        unique(), 
+      causal_effect_foot |> 
+        group_by(intervention, frugivory_type) |> 
+        transmute(mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975),
+                  var = 'Human footprint') |> 
+        unique(), 
+      causal_effect_bush |> 
+        group_by(intervention, frugivory_type) |> 
+        transmute(mu = median(probability), 
+                  li = quantile(probability, 0.025), 
+                  ls = quantile(probability, 0.975), 
+                  var = 'Bush cover') |> 
+        unique())
+
+causal_df$frugivory_type[grep('^Total', causal_df$frugivory_type)] <- 
+  'Frugivory'
+
+causal_df$intervention[grep("10th vs. 90th\npercentile", 
+                            causal_df$intervention)] <- 
+  '10th vs. 90th\n percentile'
+
+unique(causal_df$intervention)
+
+ggplot(causal_df, aes(intervention, mu, ymin = li, ymax = ls, 
+           color = frugivory_type)) +
+  geom_errorbar(width = 0, linewidth = 2, alpha = 0.5,
+                position = position_dodge(width = 0.4)) +
+  geom_point(size = 1.5, 
+             position = position_dodge(width = 0.4)) +
+  scale_color_manual(values = c("#984EA3", "#E41A1C", "#FF7F00", 
+                                "#377EB8", "#4DAF4A")) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  facet_wrap(~var, scales = 'free_y') +
+  # facet_wrap(~type, nrow = 1, scales = 'free') +
+  # force_panelsizes(
+  #   cols = unit(c(3, 2), "in"),
+  #   respect = T
+  # ) +
+  labs(x = '\nz-score difference of predictor variable', 
+       y = expression(Delta ~'P(Fruit consumption)')) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        strip.text = element_text(size = 9),
+        axis.line = element_line(linewidth = 0.35),
+        text = element_text(family = 'Times New Roman', size = 10), 
+        legend.position = 'top',
+        legend.title = element_blank(),
+        axis.title = element_text(size = 12),
+        legend.text = element_text(size = 9.5)
+        # axis.title.y = element_text(margin = margin(r = 1)),
+        # # Adjust plot margins if needed
+        # plot.margin = margin(10, 10, 10, 40)
+  )
+
+
+ggsave('figure_4.jpg', width = 20, height = 12, units = 'cm', dpi = 500)
+
+
+all_betas[all_betas$significant == T, ]
+
+unique(all_betas[all_betas$significant == T, ]$predictor)
+
+split(all_betas[all_betas$significant == T, ], 
+      all_betas[all_betas$significant == T, ]$`Fruit consumption`)
+
+
+causal_effects_estimates <- 
+  lapply(ls()[grep('^causal', ls())][-c(1, 8)], FUN = 
+         function(x) {
+           
+           d <- get(x)
+           
+           d |>
+             group_by(intervention, frugivory_type) |>
+             transmute(factor = factor,
+                       mean_effect = median(probability),
+                       li = quantile(probability, 0.025),
+                       ls = quantile(probability, 0.975),
+                       sd_effect = sd(probability),
+                       `p(causal effect > 0)` = mean(probability > 0),
+                       `p(causal effect < 0)` = mean(probability < 0)) |>
+             unique()
+         })
+
+causal_effects_estimates <- do.call('rbind', causal_effects_estimates)
+
+
+zzz <- 
+  lapply(ls()[grep('^causal', ls())][-c(1, 8)], FUN = 
+         function(x) {
+           
+           d <- get(x)
+           
+           d <- d[-grep('^10', d$intervention), ]
+           
+           d |>
+             group_by(frugivory_type, factor) |>
+             transmute(mu = median(probability), 
+                       sd = sd(probability),
+                       li = quantile(probability, 0.025),
+                       ls = quantile(probability, 0.975),
+                       `p > 0` = mean(probability > 0),
+                       `p < 0` = mean(probability < 0)) |>
+             unique()
+           
+         })
+
+zzz <- do.call('rbind', zzz)
+
+zzz[order(zzz$frugivory_type), ]
 
 sessionInfo()
