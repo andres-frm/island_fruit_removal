@@ -36,7 +36,7 @@ code-copy: true
 
 # S1. Introduction
 
-Bayesian hierarchical models assesing the causal effect of biogeographical, regional and landscape factors studied in *... et al. Measuring the macroecological and local effects on plant-animal interaction using artificial fruits*. This document includes minor data wrangling procedures for data preparation, mathematical notation of the models, models' sampling diagnostics, tables and figures of models' outputs.
+Bayesian hierarchical models assessing the causal effects of biogeographical, regional, and landscape factors. Data are from the study *... et al. Measuring the macroecological and local effects on plant–animal interaction using artificial fruits*. This document describes data wrangling procedures, adjustment sets for causal effect estimation, mathematical notation of the models, sampling diagnostics, and outputs (tables and figures).
 
 # S2. `R` packages
 
@@ -67,14 +67,14 @@ dis_matrix <- data$dist_islands
 ```
 
 
-Proportion of `NA` observation per variable.
+Proportion of missing observations (`NA`) per variable.
 
 ```{r}
 sapply(d, function(x) mean(is.na(x)))
 
 ```
 
-Indexing `NA` observations for conducting Bayesian imputation within the models. This code also includes minor formatting of index for other factors.
+Indexing missing observations for Bayesian imputation within models. This code also includes minor formatting of indices for other factors.
 
 ```{r}
 
@@ -134,9 +134,9 @@ dat$Lizard <- ifelse(dat$Lizard > 0, 1, 0)
 dat$Bird <- ifelse(dat$Bird > 0, 1, 0)
 ```
 
-# S4. Custom functions
+# S4. Custom Functions
 
-Functions for conducting sampling diagnostics
+Functions for sampling diagnostics.
 
 ```{r}
 
@@ -146,7 +146,7 @@ mod_diagnostics
 
 ```
 
-The function `average_effect` uses the structure of the models to estimate the effect of factor variables
+The `average_effect()` function uses the model structure to estimate the average marginal effect of factor variables.
 
 ```{r}
 average_effects <- function(n_levels, 
@@ -195,7 +195,7 @@ average_effects <- function(n_levels,
 ```
 
 
-The function `conditional effects` uses the structure of the model to graphic regression plots.
+The `conditional_effects()` function uses the model structure to generate regression plots. It also performs interventions on predictor variables to estimate causal effects.
 
 ```{r}
 cond_effects <- function(posterior, 
@@ -310,7 +310,7 @@ cond_effects <- function(posterior,
 }
 ```
 
-The function `slope_pars` extract median value, 95% credibility intervals, and probability of being above or below zero of slope parameters. This procdure is conducted for each response variable.
+The `function slope_pars()` extracts the median value, 95 percent credibility intervals, and probability of being above or below zero for each slope parameter. This procedure is conducted for each response variable.
 
 ```{r}
 slope_pars <- 
@@ -340,16 +340,18 @@ slope_pars <-
       c('Bird frugivory', 'Seed dispersal', 
         'Lizard frugivory', 
         'Seed predation',
-        'Total frugivory')
+        'Frugivory')
     post
   }
 ```
 
-# S5. Models: Overall mathematical notation 
+# S5. Models: Mathematical Notation
 
-All models preserve the same structure with respect to random effects and correlated islands, but they differ in the adjustment set of predictors that should be included to detect the correct causal effect. Thus, we present the overall mathematical notation for all models here, whereas the specific adjustment sets for the models will be provided below. 
+## Overall Model Notation
 
-Prior probabilities were defined to encompass plausible values of the response variable on the $logit$ scale. $D$ stands for either $binomial$ or $Bernoulli$ probability distributions. Dispersion parameters were parametrized to explore positive values, whereas prior probabilities of slope parameters of *causal effect* and *adjustment set* were defined to explore either positive or negative effects.
+All models share the same structure for random effects and account for correlation among islands, but differ in the adjustment set of predictors required to estimate the correct causal effect. We therefore present the general mathematical notation here; the specific adjustment sets for each model are provided in the subsequent sections.
+
+Prior probabilities were defined to encompass plausible values of the response variable on the logit scale. $D$ represents either a binomial or Bernoulli probability distribution. Dispersion parameters were parameterized to explore positive values, while prior probabilities for the slope parameters of the *causal effect* and *adjustment set* variables were defined to allow for either positive or negative effects.
 
 
 \pagebreak
@@ -401,6 +403,34 @@ $$
 $$
 
 
+## Adjustment Sets for Estimating Causal Effects
+
+Adjustment sets of covariates used to condition the models to estimate specific causal effects. These sets were derived from the causal model in Supporting Information S1 (Section S3) using the back-door criterion.
+
+| Causal effect | Adjustment set of covariates |
+|---------------|------------------------------|
+| Latitude      |   No adjustment set is needed  |
+||
+| Biogeographical realm | No adjustment set is needed  |
+||
+| Island isolation | Type of island |
+||
+| Island size | Type of island |
+||
+| Island altitude | Type of island |
+||
+| Human footprint | Human population |
+||
+| Native cover | Human footprint |
+|              | Island altitude |
+|              | Island isolation |
+|              | Temperature |
+|              | Invasive rank |
+||
+| Bush cover | Native vegetation |
+|            | Temperature |
+
+
 # S6. Effect of Latitude
 
 ## Model: Total frugivory
@@ -412,7 +442,7 @@ $$
 & \text{Total frugivory}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
+& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} + \zeta_{realm}\\
 \\
 & \beta \sim \mathcal{N}(0, 1) \\
 \end{aligned}
@@ -420,7 +450,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_latitude_tot.stan`.
+The raw `Stan` code for the model is available in the file `mod_latitude_tot.stan`.
 
 ```{r, echo=FALSE}
 mod_latitude_tot <- readRDS('mod_latitude_tot.rds')
@@ -448,7 +478,7 @@ mod_latitude_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_latitude_tot$draws(c('alpha', 
                                      'beta_lat', 
                                      # 'beta_H_pop', 
@@ -466,14 +496,14 @@ mcmc_trace(mod_latitude_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_latitude_tot <- mod_latitude_tot$summary()
 mod_diagnostics(mod_latitude_tot, sum_latitude_tot)
 ppcheck_latitude_tot <- mod_latitude_tot$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$total_remotion), main = '', 
-     xlab = 'Total frugivory', ylim = c(0, 0.1))
+     xlab = 'Frugivory', ylim = c(0, 0.1))
 for (i in 1:200) lines(density(ppcheck_latitude_tot[i, ]), lwd = 0.1)
 lines(density(dat$total_remotion), lwd = 2, col = 'red')
 par(mfrow = c(1, 1))
@@ -553,7 +583,7 @@ $$
 & \text{Bird frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
+& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} + \zeta_{realm}\\
 \\
 & \beta \sim \mathcal{N}(0, 1) \\
 \end{aligned}
@@ -561,7 +591,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_latitude_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_latitude_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_latitude_bird <- readRDS('mod_latitude_bird.rds')
@@ -589,7 +619,7 @@ mod_latitude_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_latitude_bird$draws(c('alpha', 
                                      'beta_lat', 
@@ -608,7 +638,7 @@ mcmc_trace(mod_latitude_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_latitude_bird <- mod_latitude_bird$summary()
 mod_diagnostics(mod_latitude_bird, sum_latitude_bird)
@@ -695,7 +725,7 @@ $$
 & \text{Lizard frugivory}_{bush~i} \sim \text{Bernoulli}(p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
+& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} + \zeta_{realm}\\
 \\
 & \beta \sim \mathcal{N}(0, 1) \\
 \end{aligned}
@@ -703,7 +733,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_latitude_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_latitude_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_latitude_lizard <- readRDS('mod_latitude_lizard.rds')
@@ -732,7 +762,7 @@ mod_latitude_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_latitude_lizard$draws(c('alpha', 
                                      'beta_lat', 
@@ -751,7 +781,7 @@ mcmc_trace(mod_latitude_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_latitude_lizard <- mod_latitude_lizard$summary()
 mod_diagnostics(mod_latitude_lizard, sum_latitude_lizard)
@@ -828,7 +858,7 @@ names(post_latitude_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -837,7 +867,7 @@ $$
 & \text{Fruit dispersal}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
+& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} + \zeta_{realm}\\
 \\
 & \beta \sim \mathcal{N}(0, 1) \\
 \end{aligned}
@@ -845,7 +875,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_latitude_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_latitude_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_latitude_disp <- readRDS('mod_latitude_disp.rds')
@@ -874,7 +904,7 @@ mod_latitude_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_latitude_disp$draws(c('alpha', 
                                      'beta_lat', 
@@ -893,7 +923,7 @@ mcmc_trace(mod_latitude_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_latitude_disp <- mod_latitude_disp$summary()
 mod_diagnostics(mod_latitude_disp, sum_latitude_disp)
@@ -971,7 +1001,7 @@ names(post_latitude_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -980,7 +1010,7 @@ $$
 & \text{Fruit predation}_{bush~i} \sim \text{binomial}(15, p_i) \\
 & logit(p) = \alpha + \beta \times \text{latitude}_i +  \\
 & ~~~~~~~~~~~~~~~~~~ \theta_{plant~id} + \phi_{grid~id} + \tau_{island~id} + \psi_{country~id} +   \\
-& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} \\
+& ~~~~~~~~~~~~~~~~~~ \delta_{biome} + \gamma_{ecoregion} + \zeta_{realm}\\
 \\
 & \beta \sim \mathcal{N}(0, 1) \\
 \end{aligned}
@@ -988,7 +1018,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_latitude_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_latitude_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_latitude_pred <- readRDS('mod_latitude_pred.rds')
@@ -1017,7 +1047,7 @@ mod_latitude_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_latitude_pred$draws(c('alpha', 
                                      'beta_lat', 
@@ -1036,7 +1066,7 @@ mcmc_trace(mod_latitude_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_latitude_pred <- mod_latitude_pred$summary()
 mod_diagnostics(mod_latitude_pred, sum_latitude_pred)
@@ -1132,9 +1162,10 @@ $$
 \end{aligned}
 $$
 
+
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_isolation_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_isolation_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_isolation_tot <- readRDS('mod_isolation_tot.rds')
@@ -1162,7 +1193,7 @@ mod_isolation_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_isolation_tot$draws(c('alpha', 
                                      #'beta_lat', 
                                      # 'beta_H_pop', 
@@ -1181,14 +1212,14 @@ mcmc_trace(mod_isolation_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_isolation_tot <- mod_isolation_tot$summary()
 mod_diagnostics(mod_isolation_tot, sum_isolation_tot)
 ppcheck_isolation_tot <- mod_isolation_tot$draws('ppcheck', format = 'matrix')
 
 plot(density(dat$total_remotion), main = '', 
-     xlab = 'Total frugivory', ylim = c(0, 0.1))
+     xlab = 'Frugivory', ylim = c(0, 0.1))
 for (i in 1:200) lines(density(ppcheck_isolation_tot[i, ]), lwd = 0.1)
 lines(density(dat$total_remotion), lwd = 2, col = 'red')
 par(mfrow = c(1, 1))
@@ -1276,7 +1307,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_isolation_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_isolation_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_isolation_bird <- readRDS('mod_isolation_bird.rds')
@@ -1304,7 +1335,7 @@ mod_isolation_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_isolation_bird$draws(c('alpha', 
                                      #'beta_lat', 
@@ -1324,7 +1355,7 @@ mcmc_trace(mod_isolation_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_isolation_bird <- mod_isolation_bird$summary()
 mod_diagnostics(mod_isolation_bird, sum_isolation_bird)
@@ -1419,7 +1450,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_isolation_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_isolation_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_isolation_lizard <- readRDS('mod_isolation_lizard.rds')
@@ -1448,7 +1479,7 @@ mod_isolation_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_isolation_lizard$draws(c('alpha', 
                                      #'beta_lat', 
@@ -1468,7 +1499,7 @@ mcmc_trace(mod_isolation_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_isolation_lizard <- mod_isolation_lizard$summary()
 mod_diagnostics(mod_isolation_lizard, sum_isolation_lizard)
@@ -1545,7 +1576,7 @@ names(post_isolation_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -1562,7 +1593,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_isolation_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_isolation_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_isolation_disp <- readRDS('mod_isolation_disp.rds')
@@ -1591,7 +1622,7 @@ mod_isolation_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_isolation_disp$draws(c('alpha', 
                                      #'beta_lat', 
@@ -1611,7 +1642,7 @@ mcmc_trace(mod_isolation_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_isolation_disp <- mod_isolation_disp$summary()
 mod_diagnostics(mod_isolation_disp, sum_isolation_disp)
@@ -1689,7 +1720,7 @@ names(post_isolation_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -1706,7 +1737,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_isolation_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_isolation_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_isolation_pred <- readRDS('mod_isolation_pred.rds')
@@ -1735,7 +1766,7 @@ mod_isolation_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_isolation_pred$draws(c('alpha', 
                                      #'beta_lat', 
@@ -1755,7 +1786,7 @@ mcmc_trace(mod_isolation_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_isolation_pred <- mod_isolation_pred$summary()
 mod_diagnostics(mod_isolation_pred, sum_isolation_pred)
@@ -1853,7 +1884,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_size_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_size_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_size_tot <- readRDS('mod_size_tot.rds')
@@ -1881,7 +1912,7 @@ mod_size_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_size_tot$draws(c('alpha', 
                                 #'beta_lat', 
                                 # 'beta_H_pop', 
@@ -1900,7 +1931,7 @@ mcmc_trace(mod_size_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_size_tot <- mod_size_tot$summary()
 mod_diagnostics(mod_size_tot, sum_size_tot)
@@ -1995,7 +2026,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_size_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_size_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_size_bird <- readRDS('mod_size_bird.rds')
@@ -2023,7 +2054,7 @@ mod_size_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_size_bird$draws(c('alpha', 
                                 #'beta_lat', 
@@ -2043,7 +2074,7 @@ mcmc_trace(mod_size_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_size_bird <- mod_size_bird$summary()
 mod_diagnostics(mod_size_bird, sum_size_bird)
@@ -2138,7 +2169,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_size_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_size_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_size_lizard <- readRDS('mod_size_lizard.rds')
@@ -2167,7 +2198,7 @@ mod_size_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_size_lizard$draws(c('alpha', 
                                 #'beta_lat', 
@@ -2187,7 +2218,7 @@ mcmc_trace(mod_size_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_size_lizard <- mod_size_lizard$summary()
 mod_diagnostics(mod_size_lizard, sum_size_lizard)
@@ -2264,7 +2295,7 @@ names(post_size_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -2281,7 +2312,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_size_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_size_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_size_disp <- readRDS('mod_size_disp.rds')
@@ -2310,7 +2341,7 @@ mod_size_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_size_tot$draws(c('alpha', 
                                 #'beta_lat', 
@@ -2330,7 +2361,7 @@ mcmc_trace(mod_size_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_size_disp <- mod_size_disp$summary()
 mod_diagnostics(mod_size_disp, sum_size_disp)
@@ -2408,7 +2439,7 @@ names(post_size_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -2425,7 +2456,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_size_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_size_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_size_pred <- readRDS('mod_size_pred.rds')
@@ -2455,7 +2486,7 @@ mod_size_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_size_pred$draws(c('alpha', 
                                 #'beta_lat', 
@@ -2475,7 +2506,7 @@ mcmc_trace(mod_size_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_size_pred <- mod_size_pred$summary()
 mod_diagnostics(mod_size_pred, sum_size_pred)
@@ -2556,6 +2587,7 @@ names(post_size_pred) <- c('alpha',
 
 # S9. Effect of island altitude
 
+
 ## Model: Total frugivory
 
 ### Mathematical notation
@@ -2573,7 +2605,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_altitude_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_altitude_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_altitude_tot <- readRDS('mod_altitude_tot.rds')
@@ -2601,7 +2633,7 @@ mod_altitude_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_altitude_tot$draws(c('alpha', 
                                 #'beta_lat', 
                                 # 'beta_H_pop', 
@@ -2620,7 +2652,7 @@ mcmc_trace(mod_altitude_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_altitude_tot <- mod_altitude_tot$summary()
 mod_diagnostics(mod_altitude_tot, sum_altitude_tot)
@@ -2715,7 +2747,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_altitude_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_altitude_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_altitude_bird <- readRDS('mod_altitude_bird.rds')
@@ -2743,7 +2775,7 @@ mod_altitude_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_altitude_bird$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -2763,7 +2795,7 @@ mcmc_trace(mod_altitude_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_altitude_bird <- mod_altitude_bird$summary()
 mod_diagnostics(mod_altitude_bird, sum_altitude_bird)
@@ -2858,7 +2890,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_altitude_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_altitude_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_altitude_lizard <- readRDS('mod_altitude_lizard.rds')
@@ -2887,7 +2919,7 @@ mod_altitude_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_altitude_lizard$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -2907,7 +2939,7 @@ mcmc_trace(mod_altitude_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_altitude_lizard <- mod_altitude_lizard$summary()
 mod_diagnostics(mod_altitude_lizard, sum_altitude_lizard)
@@ -2984,7 +3016,7 @@ names(post_altitude_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -3001,7 +3033,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_altitude_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_altitude_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_altitude_disp <- readRDS('mod_altitude_disp.rds')
@@ -3030,7 +3062,7 @@ mod_altitude_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_altitude_disp$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -3050,7 +3082,7 @@ mcmc_trace(mod_altitude_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_altitude_disp <- mod_altitude_disp$summary()
 mod_diagnostics(mod_altitude_disp, sum_altitude_disp)
@@ -3128,7 +3160,7 @@ names(post_altitude_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -3145,7 +3177,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_altitude_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_altitude_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_altitude_pred <- readRDS('mod_altitude_pred.rds')
@@ -3175,7 +3207,7 @@ mod_altitude_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_altitude_pred$draws(c('alpha', 
                                 #'beta_lat', 
@@ -3195,7 +3227,7 @@ mcmc_trace(mod_altitude_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_altitude_pred <- mod_altitude_pred$summary()
 mod_diagnostics(mod_altitude_pred, sum_altitude_pred)
@@ -3290,9 +3322,10 @@ $$
 \end{aligned}
 $$
 
+
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_footprint_tot <- readRDS('mod_footprint_tot.rds')
@@ -3320,7 +3353,7 @@ mod_footprint_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_footprint_tot$draws(c('alpha', 
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
@@ -3339,7 +3372,7 @@ mcmc_trace(mod_footprint_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_footprint_tot <- mod_footprint_tot$summary()
 mod_diagnostics(mod_footprint_tot, sum_footprint_tot)
@@ -3434,7 +3467,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_footprint_bird <- readRDS('mod_footprint_bird.rds')
@@ -3462,7 +3495,7 @@ mod_footprint_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_footprint_bird$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -3482,7 +3515,7 @@ mcmc_trace(mod_footprint_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_footprint_bird <- mod_footprint_bird$summary()
 mod_diagnostics(mod_footprint_bird, sum_footprint_bird)
@@ -3577,7 +3610,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_footprint_lizard <- readRDS('mod_footprint_lizard.rds')
@@ -3606,7 +3639,7 @@ mod_footprint_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_footprint_lizard$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -3626,7 +3659,7 @@ mcmc_trace(mod_footprint_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_footprint_lizard <- mod_footprint_lizard$summary()
 mod_diagnostics(mod_footprint_lizard, sum_footprint_lizard)
@@ -3703,7 +3736,7 @@ names(post_footprint_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -3720,7 +3753,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_footprint_disp <- readRDS('mod_footprint_disp.rds')
@@ -3749,7 +3782,7 @@ mod_footprint_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_footprint_disp$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -3769,7 +3802,7 @@ mcmc_trace(mod_footprint_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_footprint_disp <- mod_footprint_disp$summary()
 mod_diagnostics(mod_footprint_disp, sum_footprint_disp)
@@ -3848,7 +3881,7 @@ names(post_footprint_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -3865,7 +3898,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_footprint_pred <- readRDS('mod_footprint_pred.rds')
@@ -3895,7 +3928,7 @@ mod_footprint_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_footprint_pred$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -3915,7 +3948,7 @@ mcmc_trace(mod_footprint_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_footprint_pred <- mod_footprint_pred$summary()
 mod_diagnostics(mod_footprint_pred, sum_footprint_pred)
@@ -4014,9 +4047,11 @@ $$
 \end{aligned}
 $$
 
+
+
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_nativeV_tot <- readRDS('mod_nativeV_tot.rds')
@@ -4044,7 +4079,7 @@ mod_nativeV_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_nativeV_tot$draws(c('alpha', 
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
@@ -4063,7 +4098,7 @@ mcmc_trace(mod_nativeV_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_nativeV_tot <- mod_nativeV_tot$summary()
 mod_diagnostics(mod_nativeV_tot, sum_nativeV_tot)
@@ -4161,7 +4196,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_nativeV_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_nativeV_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_nativeV_bird <- readRDS('mod_nativeV_bird.rds')
@@ -4189,7 +4224,7 @@ mod_nativeV_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_nativeV_bird$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -4209,7 +4244,7 @@ mcmc_trace(mod_nativeV_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_nativeV_bird <- mod_nativeV_bird$summary()
 mod_diagnostics(mod_nativeV_bird, sum_nativeV_bird)
@@ -4307,7 +4342,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_nativeV_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_nativeV_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_nativeV_lizard <- readRDS('mod_nativeV_lizard.rds')
@@ -4336,7 +4371,7 @@ mod_nativeV_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_nativeV_lizard$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -4356,7 +4391,7 @@ mcmc_trace(mod_nativeV_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_nativeV_lizard <- mod_nativeV_lizard$summary()
 mod_diagnostics(mod_nativeV_lizard, sum_nativeV_lizard)
@@ -4434,7 +4469,7 @@ names(post_nativeV_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -4454,7 +4489,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_footprint_disp.rds`.
+The raw `Stan` code for the model is available in the file `mod_footprint_disp.rds`.
 
 ```{r, echo=FALSE}
 mod_nativeV_disp <- readRDS('mod_nativeV_disp.rds')
@@ -4483,7 +4518,7 @@ mod_nativeV_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_nativeV_disp$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -4503,7 +4538,7 @@ mcmc_trace(mod_nativeV_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_nativeV_disp <- mod_nativeV_disp$summary()
 mod_diagnostics(mod_nativeV_disp, sum_nativeV_disp)
@@ -4581,7 +4616,7 @@ names(post_nativeV_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -4601,7 +4636,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_nativeV_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_nativeV_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_nativeV_pred <- readRDS('mod_nativeV_pred.rds')
@@ -4631,7 +4666,7 @@ mod_nativeV_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_nativeV_pred$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -4651,7 +4686,7 @@ mcmc_trace(mod_nativeV_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_nativeV_pred <- mod_nativeV_pred$summary()
 mod_diagnostics(mod_nativeV_pred, sum_nativeV_pred)
@@ -4748,9 +4783,10 @@ $$
 \end{aligned}
 $$
 
+
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_bush_tot.rds`.
+The raw `Stan` code for the model is available in the file `mod_bush_tot.rds`.
 
 ```{r, echo=FALSE}
 mod_bush_tot <- readRDS('mod_bush_tot.rds')
@@ -4778,7 +4814,7 @@ mod_bush_tot <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 mcmc_trace(mod_bush_tot$draws(c('alpha', 
                                         # 'beta_lat', 
                                         # 'beta_H_pop', 
@@ -4797,7 +4833,7 @@ mcmc_trace(mod_bush_tot$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_bush_tot <- mod_bush_tot$summary()
 mod_diagnostics(mod_bush_tot, sum_bush_tot)
@@ -4893,7 +4929,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_bush_bird.rds`.
+The raw `Stan` code for the model is available in the file `mod_bush_bird.rds`.
 
 ```{r, echo=FALSE}
 mod_bush_bird <- readRDS('mod_bush_bird.rds')
@@ -4921,7 +4957,7 @@ mod_bush_bird <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_bush_bird$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -4941,7 +4977,7 @@ mcmc_trace(mod_bush_bird$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_bush_bird <- mod_bush_bird$summary()
 mod_diagnostics(mod_bush_bird, sum_bush_bird)
@@ -5037,7 +5073,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_bush_lizard.rds`.
+The raw `Stan` code for the model is available in the file `mod_bush_lizard.rds`.
 
 ```{r, echo=FALSE}
 mod_bush_lizard <- readRDS('mod_bush_lizard.rds')
@@ -5066,7 +5102,7 @@ mod_bush_lizard <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_bush_lizard$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -5086,7 +5122,7 @@ mcmc_trace(mod_bush_lizard$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_bush_lizard <- mod_bush_lizard$summary()
 mod_diagnostics(mod_bush_lizard, sum_bush_lizard)
@@ -5164,7 +5200,7 @@ names(post_bush_lizard) <- c('alpha',
 ```
 
 
-## Model: Fruit dispersal
+## Model: seed dispersal
 
 ### Mathematical notation
 
@@ -5182,7 +5218,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_bush_dip.rds`.
+The raw `Stan` code for the model is available in the file `mod_bush_dip.rds`.
 
 ```{r, echo=FALSE}
 mod_bush_disp <- readRDS('mod_bush_dip.rds')
@@ -5211,7 +5247,7 @@ mod_bush_disp <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_bush_disp$draws(c('alpha', 
                                      # 'beta_lat', 
@@ -5231,7 +5267,7 @@ mcmc_trace(mod_bush_disp$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_bush_disp <- mod_bush_disp$summary()
 mod_diagnostics(mod_bush_disp, sum_bush_disp)
@@ -5309,7 +5345,7 @@ names(post_bush_disp) <- c('alpha',
 ```
 
 
-## Model: Fruit predation
+## Model: seed predation
 
 ### Mathematical notation
 
@@ -5327,7 +5363,7 @@ $$
 
 ### `Stan` code
 
-Raw `stan` code of the model can be found at the file `mod_bush_pred.rds`.
+The raw `Stan` code for the model is available in the file `mod_bush_pred.rds`.
 
 ```{r, echo=FALSE}
 mod_bush_pred <- readRDS('mod_bush_pred.rds')
@@ -5357,7 +5393,7 @@ mod_bush_pred <-
 
 ### MCMC diagnostics
 
-```{r, fig.cap='Trace plots of main parameters. eta and rho are rate and length parameters of Gaussian processes', fig.height=15, fig.width=10}
+```{r, fig.cap='Trace plots of main parameters. The parameters eta and rho represent the rate and length parameters of Gaussian processes, respectively', fig.height=15, fig.width=10}
 
 mcmc_trace(mod_bush_pred$draws(c('alpha', 
                                         # 'beta_lat', 
@@ -5377,7 +5413,7 @@ mcmc_trace(mod_bush_pred$draws(c('alpha',
 ```
 
 
-```{r, fig.cap='left: Rhat and effective sampling size (ess) of the parameters. Right: Posterior predictive checks'}
+```{r, fig.cap='Left panel: Rhat statistics and effective sample size (ESS) for all parameters. Right panel: Posterior predictive checks'}
 par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
 sum_bush_pred <- mod_bush_pred$summary()
 mod_diagnostics(mod_bush_pred, sum_bush_pred)
@@ -5457,9 +5493,11 @@ names(post_bush_pred) <- c('alpha',
 
 # S13. Results
 
-## Factors
+## Factor Variables
 
-### Effect of biogeographical realms (island level)
+### Effect of Biogeographical Realms (Island Level)
+
+Below we provide code for extracting posterior distributions, plotting results, and generating tables.
 
 ```{r}
 islands_post <- 
@@ -5530,7 +5568,7 @@ islands_post <-
            d$model <- c('Bird frugivory', 
                         'Seed dispersal', 'Lizard frugivory', 
                         'Seed predation', 
-                         'Total frugivory')[[x]]
+                         'Frugivory')[[x]]
            d
          })
 
@@ -5628,7 +5666,7 @@ plots_islands_realm$post_latitude_tot +
 
 ```
 
-### Effect type of island (island level)
+### Effect of Type of Island (Island Level)
 
 ```{r}
 plots_islands_type <- 
@@ -5719,7 +5757,7 @@ plots_islands_type$post_latitude_tot +
 
 ```{r}
 
-label <- 'Fruit consumption probabilities across islands, by biogeographical region, island type, and frugivory type. columns mu, li, and ls, indicate median, and 95 percentage credibility intervals of the posterior distribution'
+label <- 'Probability of fruit consumption across islands, by biogeographical region, island type, and type of fruit consumption. Columns mu, li, and ls indicate the median and 95 percent credibility intervals of the posterior distribution.'
 
 
 knitr::kable(do.call('rbind', islands_post)[,-7], 
@@ -5873,7 +5911,7 @@ plot_frugivory_islands <-
 
 plot_frugivory_realms <- 
 full_join(realm_tot, codes$real, 'code') |> 
-  mutate(type = 'Total frugivory') |> 
+  mutate(type = 'Frugivory') |> 
   group_by(type, island) |> 
   transmute(mu = median(y), 
             li = quantile(y, 0.025), 
@@ -5968,10 +6006,10 @@ plot_grid(plot_grid(NULL,
 
 ```{r}
 
-label <- 'Marginalized fruit consumption probabilities across type of islands and frugivory. columns mu, li, and ls, indicate median, and 95 ercentage credibility intervals of the posterior distribution.'
+label <- 'Marginalized fruit consumption probabilities by island type and type of fruit consumption. Columns mu, li, and ls indicate the median and 95 percent credibility intervals of the posterior distribution.'
 
 kable(rbind(full_join(TI_tot, codes$island_type, 'code') |> 
-        mutate(type = 'Total frugivory'),
+        mutate(type = 'Frugivory'),
             full_join(TI_disp, codes$island_type, 'code') |> 
         mutate(type = 'Seed dispersal'),
       full_join(TI_bird, codes$island_type, 'code') |> 
@@ -5992,10 +6030,10 @@ kable(rbind(full_join(TI_tot, codes$island_type, 'code') |>
 
 ```{r}
 
-label <- 'Marginalized fruit consumption probabilities across biogeographical region, and frugivory type. columns mu, li, and ls, indicate median, and 95 ercentage credibility intervals of the posterior distribution.'
+label <- 'Marginalized fruit consumption probabilities across biogeographical regions and type of fruit consumption. Columns mu, li, and ls indicate the median and 95 percent credibility intervals of the posterior distribution.'
 
 kable(rbind(full_join(realm_tot, codes$real, 'code') |> 
-        mutate(type = 'Total frugivory'), 
+        mutate(type = 'Frugivory'), 
             full_join(realm_disp, codes$real, 'code') |> 
         mutate(type = 'Seed dispersal'),
       full_join(realm_bird, codes$real, 'code') |> 
@@ -6013,7 +6051,7 @@ kable(rbind(full_join(realm_tot, codes$real, 'code') |>
   caption = label)
 ```
 
-## Contrast
+## Contrasts
 
 ### Type of island
 
@@ -6034,7 +6072,7 @@ comtrast_type_islands<-
                            d
                          })
           
-           names(d) <- c('Total frugivory', 
+           names(d) <- c('Frugivory', 
                          'Seed dispersal', 'Seed predation', 
                          'Bird frugivory', 'Lizard frugivory')
            
@@ -6083,7 +6121,7 @@ comtrast_type_islands<-
 ```
 
 ```{r}
-label <- 'Contrast of the probability of fruit consumption among type of islands'
+label <- 'Contrast of fruit consumption probabilities across island types'
 
 knitr::kable(comtrast_type_islands, 
              caption = label, 
@@ -6111,7 +6149,7 @@ contrast_realms <-
                            d
                          })
            
-           names(d) <- c('Total frugivory', 'Seed dispersal',
+           names(d) <- c('Frugivory', 'Seed dispersal',
                          'Seed predation', 
                          'Bird frugivory', 'Lizard frugivory')
            
@@ -6164,7 +6202,7 @@ contrast_realms <-
 
 
 ```{r}
-label <- 'Contrast of the probability of fruit consumption among biogeographic realms'
+label <- 'Contrast of fruit consumption probability among biogeographical realms.'
 
 knitr::kable(contrast_realms, 
              caption = label, 
@@ -6172,7 +6210,7 @@ knitr::kable(contrast_realms,
   kable_styling(font_size = 8)
 ```
 
-## Continuous variables
+## Continuous factors
 
 This section includes summary tables and figures showing the effect of continuous variables on the probability of fruit consumption.
 
@@ -6195,7 +6233,7 @@ all_betas <-
       slope_pars('post_bush', 'beta_bush') |> 
         mutate(predictor = 'Bush cover'))
 
-lab <- 'Slope parameters of factors affecting frugivory interactions in islands worldwide. columns mu, li, and ls indicate respectively, the median value, 95 percent lower and uper limits of the posterior distribution; P(beta > 0): probability of the effect being positive; P(beta < 0): probability of the effect being negative; Fruit consumption: type of frugivory; predictor: predictor variable; significant: significant at 80 precent probability'
+lab <- 'Slope parameters of factors affecting frugivory interactions on islands worldwide. Columns: mu, li, and ls indicate the median and 95 percent lower/upper credibility limits of the posterior distribution; P(beta > 0): probability of a positive effect; P(beta < 0): probability of a negative effect; Fruit consumption: type of frugivory; Predictor: predictor variable; Significant: significant at >80 percent probability'
 
 knitr::kable(all_betas, 
              caption = lab, 
@@ -6208,7 +6246,7 @@ knitr::kable(all_betas,
 ```{r}
 beta_latitude <- 
   post_latitude_tot$beta |> 
-  mutate(frugivory_type = 'Total frugivory') |> 
+  mutate(frugivory_type = 'Frugivory') |> 
   rename(x = beta_lat) |> 
   ggplot(aes(x)) +
   geom_density(fill = "#4DAF4A", alpha = 0.45, 
@@ -6223,7 +6261,7 @@ beta_latitude <-
 
 beta_isolation <- 
 rbind(post_isolation_tot$beta |> 
-        mutate(frugivory_type = 'Total frugivory') |> 
+        mutate(frugivory_type = 'Frugivory') |> 
         rename(x = beta_I_isolation), 
       post_isolation_pred$beta |> 
         mutate(frugivory_type = 'Seed predation') |> 
@@ -6328,7 +6366,7 @@ beta_bush <-
   )
 ```
 
-```{r, fig.height=15, fig.width=15, fig.cap='Slope posterior distribution of factors affecting different types of frugivory (colors)'}
+```{r, fig.height=15, fig.width=15, fig.cap='Posterior distributions of slope parameters for factors affecting different types of fruit consumption (indicated by colors).'}
 layout_design <- 
   '
   ab
@@ -6442,7 +6480,7 @@ est_bush_bird <- cond_effects(posterior = post_bush_bird,
 plot_scatter_isolation <- 
   rbind(est_isolation_tot |> 
         mutate(var = 'Island isolation', 
-               type = 'Total frugivory'), 
+               type = 'Frugivory'), 
       est_isolation_pred |> 
         mutate(var = 'Island isolation', 
                type = 'Seed predation'),
@@ -6546,7 +6584,7 @@ plot_scatter_bush <-
 plot_scatter_latitude <- 
   rbind(est_latitude_tot |> 
         mutate(var = 'Latitude', 
-               type = 'Total frugivory')) |> 
+               type = 'Frugivory')) |> 
   mutate(x_revert = mean(d$lat) + x * sd(d$lat))|> 
   ggplot(aes(x_revert, y, ymin = li, ymax = ls)) +
   geom_ribbon(alpha = 0.5, fill = "#4DAF4A") +
@@ -6665,7 +6703,7 @@ plot_beta_continuous <-
 ```
 
 
-```{r, fig.width=15, fig.height=30, fig.cap='Effect of biogeographical, landscape and local factors explaining the probability of frugivory interactions (i.e., dispersion + predations), seed dispersal and predation. (a) Slope coefficients showing the effect of predictor variables; the colors indicate the type of response variable; dots and error bars indicate 95 percentage credibility intervals and median value of the posterior distributions; arrows indicate the effects with an 80 percentage of probability of being above or below zero. (b) Regression plots of the effects pointed with arrows in panel a.'}
+```{r, fig.width=15, fig.height=30, fig.cap='Effects of biogeographical, landscape, and local factors on the probability of frugivory interactions (i.e., dispersion + predation), seed dispersal, and seed predation. (a) Slope coefficients (effect sizes) of predictor variables; colors indicate response variable types; points and error bars show posterior medians and 95 percent credibility intervals; arrows highlight effects with >80 percent probability of being positive or negative. (b) Regression plots of effects highlighted by arrows in panel (a)'}
 
 layout2 <- 
   '
@@ -6724,7 +6762,7 @@ causal_effect_latitude <-
   pivot_longer(causal_effect_latitude, colnames(causal_effect_latitude), 
                names_to = 'intervention', values_to = 'probability')
 
-causal_effect_latitude$frugivory_type <- 'Total frugivory'
+causal_effect_latitude$frugivory_type <- 'Frugivory'
 causal_effect_latitude$factor <- 'Latitude'
 #"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
 # lizard  predation. total      bird.    'disp
@@ -6758,7 +6796,7 @@ causal_effect_isolation <-
            model <- list(post_isolation_tot, 
                          post_isolation_pred, 
                          post_isolation_lizard)[[x]]
-           model_lab <- c('Total frugivory', 
+           model_lab <- c('Frugivory', 
                           'Seed predation', 
                           'Lizard frugivory')[x]
            
@@ -6802,7 +6840,7 @@ causal_effect_isolation <- do.call('rbind', causal_effect_isolation)
 tribble(~code_color, ~group, 
         "#E41A1C", 'lizard',
         "#377EB8", 'seed predation',
-        "#4DAF4A", 'total frugivory',
+        "#4DAF4A", 'Frugivory',
         "#984EA3", 'bird frugivory',
         "#FF7F00", 'seed dispersal')
 
@@ -6882,7 +6920,7 @@ causal_effect_size <- do.call('rbind', causal_effect_size)
 tribble(~code_color, ~group, 
         "#E41A1C", 'lizard',
         "#377EB8", 'seed predation',
-        "#4DAF4A", 'total frugivory',
+        "#4DAF4A", 'Frugivory',
         "#984EA3", 'bird frugivory',
         "#FF7F00", 'seed dispersal')
 
@@ -6970,7 +7008,7 @@ causal_effect_alt <- do.call('rbind', causal_effect_alt)
 tribble(~code_color, ~group, 
         "#E41A1C", 'lizard',
         "#377EB8", 'seed predation',
-        "#4DAF4A", 'total frugivory',
+        "#4DAF4A", 'Frugivory',
         "#984EA3", 'bird frugivory',
         "#FF7F00", 'seed dispersal')
 
@@ -7062,7 +7100,7 @@ causal_effect_foot <- do.call('rbind', causal_effect_foot)
 tribble(~code_color, ~group, 
         "#E41A1C", 'lizard',
         "#377EB8", 'seed predation',
-        "#4DAF4A", 'total frugivory',
+        "#4DAF4A", 'Frugivory',
         "#984EA3", 'bird frugivory',
         "#FF7F00", 'seed dispersal')
 
@@ -7159,7 +7197,7 @@ causal_effect_bush <- do.call('rbind', causal_effect_bush)
 tribble(~code_color, ~group, 
         "#E41A1C", 'lizard',
         "#377EB8", 'seed predation',
-        "#4DAF4A", 'total frugivory',
+        "#4DAF4A", 'Frugivory',
         "#984EA3", 'bird frugivory',
         "#FF7F00", 'seed dispersal')
 
@@ -7203,7 +7241,7 @@ causal_effect_bush |>
 
 ```
 
-```{r, fig.width= 15, fig.height=15, }
+```{r, fig.width= 15, fig.height=15, fig.cap='Causal effect of biogeographical, regional and local factors affecting fruit consumption on islands worldwide. Colors represent different types of fruit consumption.. The causal effect is defined as the change of the probability of fruit consumption (i.e., delta P(Fruit consumption)) when altering the predictor i from condition j (e.g., -1 SD) to condition k (e.g., 0 SD). Panels display only predictors for which the posterior probability of a positive or negative effect was > 0.80 (see Figure 3). Colors denote the type of fruit consumption. Points and error bars represent the median and 95 percent credibility intervals of the posterior distributions.'}
 p_layout <- 
   '
   bbcc
@@ -7223,6 +7261,7 @@ plot_causal_effect_latitude + labs(x = "") + theme(text = element_text(size = 14
   theme(plot.tag.position = c(0.1, 1))
 ```
 
+Specific estimations of causal effects
 
 ```{r}
 causal_effects_estimates <- 
@@ -7248,7 +7287,7 @@ causal_effects_estimates <- do.call('rbind', causal_effects_estimates)
 ```
 
 ```{r}
-label <- 'Causal effect of main factors affecting the probability of fruit consumption on islands worldwide'
+label <- 'Causal effects of main factors affecting the probability of fruit consumption on islands worldwide'
 
 knitr::kable(causal_effects_estimates, 
              caption = label, 
@@ -7256,6 +7295,40 @@ knitr::kable(causal_effects_estimates,
   kable_styling(font_size = 5)
 
 ```
+
+
+```{r}
+zzz <-
+  lapply(ls()[grep('^causal', ls())][-7], FUN =
+         function(x) {
+
+           d <- get(x)
+
+           d <- d[-grep('^10', d$intervention), ]
+
+           d |>
+             group_by(frugivory_type, factor) |>
+             transmute(mu = median(probability),
+                       sd = sd(probability),
+                       li = quantile(probability, 0.025),
+                       ls = quantile(probability, 0.975),
+                       `p > 0` = mean(probability > 0),
+                       `p < 0` = mean(probability < 0)) |>
+             unique()
+
+         })
+
+zzz <- do.call('rbind', zzz)
+
+```
+
+```{r}
+
+knitr::kable(zzz[order(zzz$frugivory_type), ],
+             digits = 3,
+             caption = 'Average causal effect of simulated scenarios of 1SD.')
+```
+
 
 # S14. Computational environment
 

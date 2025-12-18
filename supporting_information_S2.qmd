@@ -33,8 +33,7 @@ code-copy: true
 ---
 
 # S1. Introduction
-
-This document holds data wrangling operations for fixing minor errors of the raw data set, calculating matrix of distances among islands, coding indexes of categorical variables and not available observations (i.e., `NA`), and formatting the entire data set to be used with the `cmdstanr` `R` package.
+This document describes data wrangling operations for: correcting minor errors in the raw dataset; calculating distance matrices among islands; coding indices for categorical variables and missing observations (i.e., `NA`); and formatting the complete dataset for use with the `cmdstanr` `R` package.
 
 # S2. Loading packages
 
@@ -63,7 +62,7 @@ apply(d, 2, function(x) mean(is.na(x)) * 100)
 
 # S4. Sampled islands 
 
-The following code uses the islands' coordinates to plot the worldwide distribution of the sampled localities.
+The following code uses island coordinates to plot the worldwide distribution of sampling localities.
 
 ```{r}
 coords_islands <- unique(d[, c("island", "long", 'lat', "realm", 
@@ -81,7 +80,7 @@ coords_islands$real_code <- as.numeric(coords_islands$realm)
 
 ```
 
-```{r, fig.cap='Spatial distribution of sampled islands (i.e., colored circles). Colors indicate the biogeographical realm'}
+```{r, fig.cap='Spatial distribution of sampled islands (colored circles). Colors indicate biogeographical realm.'}
 #jpeg('map.jpeg', width = 20, height = 20, units = 'cm', res = 500)
 par(mar = c(1, 1, 1, 1))
 map("world", col="gray90", fill=TRUE, bg="white", border="gray50")
@@ -93,9 +92,9 @@ legend(x = -170, y = 0, legend = levels(coords_islands$realm),
 ```
 
 
-# S5. Matriz of distances
+# S5. Distance Matrix
 
-Code for generating a simetric matriz of distance (km) between sampled islands. 
+Code for generating a symmetric distance matrix (in kilometers) between sampled islands.
 
 ```{r}
 # shortest distance over the Earth's surface (great-circle distance).
@@ -110,9 +109,9 @@ islands_dist[1:5, 1:5]
 ```
 
 
-# S6. Data cleaning
+# S6. Data Cleaning
 
-In this section we conducted operations for correcting typo error in some variables, selecting the columns that will be used in final analysis, and aggregation of fruits consumed per plant. 
+This section describes operations for: correcting typographical errors in some variables; selecting columns for the final analysis; and aggregating fruits consumed per plant.
 
 ```{r}
 d$fruit_fate[which(d$fruit_fate == 'eaten')] <- 'Eaten'
@@ -146,7 +145,7 @@ This means that there are four plants that have either higher or lower number of
 names(d[which(unlist(lapply(d, nrow), use.names = F) != 15)])
 ```
 
-Some fruits were assigned to different fruits. The following code correct it
+Some fruits were assigned to incorrect plants. The following code corrects this.
 
 ```{r}
 d$`FN01--2` <- 
@@ -171,7 +170,7 @@ Now the data meets the condition of 15 fruits per plant
 sum(unlist(lapply(d, nrow), use.names = F) != 15)
 ```
 
-Once the data is corrected, we aggregate the fruits per plant
+Once the data are corrected, we aggregate the fruits per plant.
 
 ```{r, warning=FALSE}
 d_total <- 
@@ -213,7 +212,7 @@ d_total <- do.call('rbind', d_total)
 
 ```
 
-Index and labels for categorical variables 
+Indexing and labeling categorical variables 
 
 ```{r}
 # fixing island label 
@@ -247,7 +246,7 @@ codes_labes <-
 ```
 
 
-Finally, we save all object on a `.rds` file that was used on the generative simulation and formal analysis.
+Finally, we save all objects to an `.rds` file for use in both the generative simulation and formal analysis.
 
 ```{r, eval=FALSE}
 # ====== Data structure for generative simulation ======

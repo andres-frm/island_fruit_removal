@@ -105,13 +105,56 @@ size of the island. Each grid was spaced at least 500 m from each other to cover
 
 :::
 
+## References
+
+:::{}
+
+- Alves-Costa, C. P., and A. V. Lopes. 2001. Using artificial fruits to evaluate fruit selection by birds in the field. Biotropica 33:713-717.
+
+- Beckman, N. G., C. E. Aslan, H. S. Rogers, O. Kogan, J. L. Bronstein, J. M. Bullock, F. Hartig, J.
+HilleRisLambers, Y. Zhou, and D. Zurell. 2020. Advancing an interdisciplinary framework to study seed dispersal ecology. AoB Plants 12:plz048.
+
+- Bello, C., M. Galetti, M. A. Pizo, L. F. Magnago, M. F. Rocha, R. A. Lima, C. A. Peres, O. Ovaskainen, and P.
+Jordano. 2015. Defaunation affects carbon storage in tropical forests. Sci Adv 1:e1501105.
+
+- Cazetta, E., D. S. Ribeiro, C. R. Cassano, D. Faria, P. Dodonov, and J. E. Baumgarten. 2019. Forest amount, not
+structure, influences fruit removal of two pioneer species in Atlantic forest remnants. Biotropica.
+
+- Egerer, M. H., E. C. Fricke, and H. S. Rogers. 2018. Seed dispersal as an ecosystem service: frugivore loss leads
+to decline of a socially valued plant, Capsicum frutescens. Ecological Applications 28:655-667.
+
+- Ferger, S. W., H. I. Dulle, M. Schleuning, and K. Böhning‐Gaese. 2016. Frugivore diversity increases frugivory
+rates along a large elevational gradient. Oikos 125:245-253.
+
+- Fleming, T. H., and W. J. Kress. 2013. The ornaments of life: coevolution and conservation in the tropics.
+University of Chicago Press.
+
+- Galetti, M., C. P. Alves-Costa, and E. Cazetta. 2003. Effects of forest fragmentation, anthropogenic edges and
+fruit colour on the consumption of ornithocoric fruits. Biological conservation 111:269-273.
+
+- Hazell, R. J. 2020. Functional relationships between birds and fruits on an elevational gradient in Papua New
+Guinea. University of Sussex.
+
+- Holt, B. G., J.-P. Lessard, M. K. Borregaard, S. A. Fritz, M. B. Araújo, D. Dimitrov, P.-H. Fabre, C. H. Graham,
+G. R. Graves, and K. A. Jønsson. 2013. An update of Wallace’s zoogeographic regions of the world.
+science 339:74-78.
+
+- Roslin, T., B. Hardwick, V. Novotny, W. K. Petry, N. R. Andrew, A. Asmus, I. C. Barrio, Y. Basset, A. L. Boesing,
+and T. C. Bonebrake. 2017. Higher predation risk for insect prey at low latitudes and elevations. science
+356:742-744.
+
+- Wang, B. C., and T. B. Smith. 2002. Closing the seed dispersal loop. Trends in Ecology & Evolution 17:379-385.
+Whittaker, R. J., J. M. Fernández-Palacios, T. J. Matthews, M. K. Borregaard, and K. A. Triantis. 2017. Island
+biogeography: Taking the long view of nature’s laboratories. science 357.
+
+:::
+
 # S3. Data-generating process
 
+![A directed acyclic graph (DAG) depicting the data-generating processes through which biogeographical, regional, and local factors affect fruit removal probability on islands worldwide](figures/DAG_islands.png)
 
-![A directed acyclic graph denoting the data-generating processes explaining how biogeographical, regional, and local factors affect the probability of fruit removal in worldwide islands.](figures/DAG_islands.png)
 
-
-The geological or biological – in the case of coraline formations – origin of the islands defines their type, which in turn encompasses the patterns of isolation, size, and altitude of the islands. Indeed, island traits likely shape the characteristics of their biological communities and the ways humans have impacted them. For instance, biodiversity patterns on islands can be influenced by proximity to the continental mainland or island size. The same traits can have determined historic human colonization processes and current impacts on native ecosystems. Thus, although some of those effects may not be linear due to the consequences of human technology —for instance, overcoming island isolation — we believe the causal structure in the previous Figure S1 remains plausible. Together, these factors may shape the probability of fruit removal directly or indirectly through other predictors.
+The geological or biological – in the case of coralline formations – origin of the islands defines their type, which in turn encompasses the patterns of isolation, size, and altitude of the islands. Indeed, island traits likely shape the characteristics of their biological communities and the ways humans have impacted them. For instance, biodiversity patterns on islands can be influenced by proximity to the continental mainland or island size. These same traits may have determined historic human colonization processes and current impacts on native ecosystems. Thus, although some of those effects may not be linear due to the consequences of human technology—for instance, overcoming island isolation—we believe the causal structure in the previous Figure S1 remains plausible. Together, these factors may shape the probability of fruit removal directly or indirectly through other predictors.
 
 
 # S4. Simulation of synthetic data 
@@ -124,7 +167,7 @@ This simplification does not compromise our purpose of testing whether the model
 
 ## Loading packages 
 
-`R` packages for data manipulation and models' fitting, and custom functions (`functions_mod_diagnostics.r`) for assessing the quality of the models' fit.
+`R` packages for data manipulation and model fitting, and custom functions (`functions_mod_diagnostics.r`) for assessing the quality of the models' fit.
 
 ```{r, warning=FALSE, message=FALSE, results='hide'}
 
@@ -149,11 +192,11 @@ codes <- all_data$labels
 dist_matrix <- all_data$dist_mat
 ```
 
-## Parameters 
-
-We included *plant id*, *grid id*, and *country id* as hierarchical random factors; $\eta$ and $\rho$ parameters for the quadratic kernel of Gaussian process, which simulate spatial correlation across islands.
-
+## Parameters
+We included *plant ID*, *grid ID*, and *country ID* as hierarchical random factors, and $\eta$ and $\rho$ parameters for the Gaussian process quadratic kernel, which simulates spatial correlation across islands.
+**
 **Random factors:**
+
 ```{r}
 # random factors 
 plants <- rnorm(nrow(sim_data), 0, 0.01) # pars plant
@@ -212,7 +255,7 @@ type_island <- c(-1.5, 1.75, 0.25) # par type of island
 ```
 
 
-**Islands of variant altitude depending on their type:**
+**Island altitude variation by island type:**
 ```{r}
 sim_alt <- 
   lapply(1, FUN = 
@@ -257,7 +300,7 @@ sim_data$altitude[sim_alt$index] <- sim_alt$island_alt
 ```
 
 
-**Effect of island type on isolation, and effect of isolation on the cover of native vegetation:**
+**Effect of island type on isolation, and of isolation on native vegetation cover:**
 
 ```{r}
 isolation_vegetation <-
@@ -329,7 +372,7 @@ beta_bush <- 0.8 # effect of bush cover
 
 ## Simulated fruit consumption
 
-We used a binomial probability distribution to generate fruit consumption.
+Fruit consumption data were generated using a binomial probability distribution.
 
 ```{r}
 sim_data$bush_cover <- bush_cover
@@ -362,7 +405,7 @@ sim_data$fruit_removal <- fruit_removal
 
 ```
 
-Finally, all the data is stored as a `list` object.
+Finally, all the data are stored as a `list` object.
 
 ```{r}
 dat <- 
@@ -395,9 +438,9 @@ plot(density(sim_data$fruit_removal), main = '',
 
 # S5. Models
 
-All models preserve the same structure with respect to random effects and correlated islands, but they differ in the adjustment set of predictors that should be included to detect the correct causal effect. Thus, we present the overall mathematical notation for all models here, whereas the specific adjustment sets for the models will be provided below. 
+All models share the same structure for random effects and account for correlation among islands, but differ in the adjustment set of predictors required to estimate the correct causal effect. We therefore present the general mathematical notation here; the specific adjustment sets for each model are provided in subsequent sections.
 
-Prior probabilities were defined to cover plausible values of the response variable on the $logit$ scale. Dispersion parameters were parametrized to explore positive values, whereas prior probabilities of slope parameters of *causal effect* and *adjustment set* were defined to explore either positive or negative effects.
+Prior probabilities were defined to encompass plausible values of the response variable on the logit scale. Dispersion parameters were parameterized to explore positive values, while prior probabilities for the slope parameters of the causal effect and adjustment set variables were defined to allow for either positive or negative effects.
 
 \pagebreak 
 
@@ -440,9 +483,10 @@ $$
 
 # S6. Effect of altitude
 
-![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_altitude.png)
 
-Estimating correctly the effect $altitude \rightarrow fruit~removal$ implies conditioning on the *type of island*, since it is a common cause of altitude and fruit removal and its omition would bias our estimation.
+![The red arrow indicates the estimand (i.e., the effect of the green factor on the red response variable), while orange factors represent the adjustment set required for correct causal effect estimation.](figures/DAG_altitude.png)
+
+Correctly estimating the effect $altitude \rightarrow fruit~removal$ requires conditioning on *island type*, since it is a common cause of both altitude and fruit removal; omitting it would bias the estimate.
 
 
 ## Mathematical version
@@ -672,7 +716,8 @@ mod_gen_sim <- readRDS('mod_gen1.rds')
 
 ## Model diagnostics 
 
-```{r, fig.cap='Bulk and tail effective sampling size (ess) of estimated parameters in the model (left). Posterior predictive distributions showing the quality of models fit (rigth).'}
+
+```{r, fig.cap='Bulk and tail effective sample size (ESS) of estimated parameters (left). Posterior predictive distributions showing model fit quality (right).'}
 par(mfrow = c(1, 2))
 summary_mod_gen <- mod_gen_sim$summary()
 mod_diagnostics(mod_gen_sim, summary_mod_gen)
@@ -719,7 +764,7 @@ names(posterior_pars) <- c('alpha', 'beta_alt', 'TI',
 
 ## Parameters recovery
 
-The function `compare_posterior` is used to compare estimated vs true parameter of the model.
+The function `compare_posterior()` is used to compare estimated vs true parameter of the model.
 
 ```{r}
 compare_posterior <- 
@@ -753,7 +798,7 @@ compare_posterior <-
 
 **Random effects:**
 
-```{r, fig.cap='Country parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Country parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$country, 
                   country, 
                   xlab = 'Countries', 
@@ -762,7 +807,7 @@ compare_posterior(posterior_pars$country,
 ```
 
 
-```{r, fig.cap='Island parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Island parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$island, 
                   islands_pars, 
                   xlab = 'Islands', 
@@ -770,7 +815,7 @@ compare_posterior(posterior_pars$island,
                   main = 'Islands parameters')
 ```
 
-```{r, fig.cap='Plant parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Plant parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 
 compare_posterior(posterior_pars$plant, 
                   plants, 
@@ -780,7 +825,7 @@ compare_posterior(posterior_pars$plant,
 ```
 
 
-```{r, fig.cap='Grid parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Grid parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$grid, 
                   grid, 
                   xlab = 'Grid', 
@@ -803,7 +848,7 @@ par(mfrow = c(1, 1))
 
 **Main effect**
 
-```{r, fig.cap='Effect of altitude on fruit removal. Density line indicate the posterior distribution, whereas the vertical red line the "true" parameter'}
+```{r, fig.cap='Effect of altitude on fruit removal. The density line indicates the posterior distribution, while the vertical red line shows the "true" parameter value.'}
 plot(density(posterior_pars$beta_alt$beta_alt), 
      main = '', xlab = expression(beta['altitude']), 
      xlim = c(-4, 4))
@@ -812,10 +857,10 @@ abline(v = beta_alt, col = 'red', lwd = 2)
 
 # S7. Effect type of island
 
-![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_type_island.png)
+![The red arrow indicates the estimand (i.e., the effect of the green factor on the red response variable), while orange factors represent the adjustment set required for correct causal effect estimation.](figures/DAG_type_island.png)
 
 
-Estimating correctly the effect $type of island \rightarrow fruit~removal$ implies not including any mediation path that could block the effect of our estimand. Thus, any additional factor should be included.
+Correctly estimating the effect $island~type \rightarrow fruit~removal$ requires excluding any mediating pathways that could block the estimand's effect. Therefore, no additional factors should be included.
 
 ## Mathematical version
 
@@ -1094,7 +1139,7 @@ names(posterior_pars) <- c('alpha', 'TI',
 
 **Random effects:**
 
-```{r, fig.cap='Country parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Country parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$country, 
                   country, 
                   xlab = 'Countries', 
@@ -1103,7 +1148,7 @@ compare_posterior(posterior_pars$country,
 ```
 
 
-```{r, fig.cap='Island parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Island parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$island, 
                   islands_pars, 
                   xlab = 'Islands', 
@@ -1111,7 +1156,7 @@ compare_posterior(posterior_pars$island,
                   main = 'Islands parameters')
 ```
 
-```{r, fig.cap='Plant parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Plant parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 
 compare_posterior(posterior_pars$plant, 
                   plants, 
@@ -1121,7 +1166,7 @@ compare_posterior(posterior_pars$plant,
 ```
 
 
-```{r, fig.cap='Grid parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Grid parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$grid, 
                   grid, 
                   xlab = 'Grid', 
@@ -1143,7 +1188,7 @@ par(mfrow = c(1, 1))
 
 **Main effect**
 
-```{r, fig.cap='Effect of type of island on fruit removal. Density line indicate the posterior distribution, whereas the vertical red line the "true" parameter'}
+```{r, fig.cap='Effect of type of island on fruit removal. The density line indicates the posterior distribution, while the vertical red line shows the "true" parameter value.'}
 compare_posterior(posterior_pars$TI,
                   type_island,
                   xlab = 'Type of island',
@@ -1154,9 +1199,9 @@ compare_posterior(posterior_pars$TI,
 
 # S8. Effect of island isolation
 
-![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_isolation.png)
+![The red arrow indicates the estimand (i.e., the effect of the green factor on the red response variable), while orange factors represent the adjustment set required for correct causal effect estimation.](figures/DAG_isolation.png)
 
-Estimating correctly the effect $isolation \rightarrow fruit~removal$ implies conditioning on the *type of island*, since it is a common cause of altitude and fruit removal and its omition would bias our estimation.
+Correctly estimating the effect $isolation \rightarrow fruit~removal$ requires conditioning on island type, since it is a common cause of both isolation and fruit removal; omitting it would bias the estimate.
 
 
 ## Mathematical version
@@ -1435,7 +1480,7 @@ names(posterior_pars) <- c('alpha', 'beta_iso', 'TI',
 
 **Random effects:**
 
-```{r, fig.cap='Country parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Country parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$country, 
                   country, 
                   xlab = 'Countries', 
@@ -1444,7 +1489,7 @@ compare_posterior(posterior_pars$country,
 ```
 
 
-```{r, fig.cap='Island parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Island parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$island, 
                   islands_pars, 
                   xlab = 'Islands', 
@@ -1452,7 +1497,7 @@ compare_posterior(posterior_pars$island,
                   main = 'Islands parameters')
 ```
 
-```{r, fig.cap='Plant parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Plant parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 
 compare_posterior(posterior_pars$plant, 
                   plants, 
@@ -1462,7 +1507,7 @@ compare_posterior(posterior_pars$plant,
 ```
 
 
-```{r, fig.cap='Grid parameter. Red dot indicate the true value, whereas error bars and hollow dot indicate average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Grid parameters. Red dots indicate the true values, whereas error bars and hollow dots represent the means and 95 percent credible intervals (CIs) of the posterior distributions.'}
 compare_posterior(posterior_pars$grid, 
                   grid, 
                   xlab = 'Grid', 
@@ -1484,7 +1529,7 @@ par(mfrow = c(1, 1))
 
 **Main effect**
 
-```{r, fig.cap='Effect of island isolation on fruit removal. Density line indicate the posterior distribution, whereas the vertical red line the "true" parameter'}
+```{r, fig.cap='Effect of island isolation on fruit removal. The density line indicates the posterior distribution, while the vertical red line shows the "true" parameter value.'}
 
 beta_tot_isolation <- 
   beta_nativeV * (0.5) + 
@@ -1501,10 +1546,10 @@ abline(v = beta_tot_isolation, col = 'red', lwd = 2)
 
 # S9. Effect of bush cover
 
-![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_bush.png)
+![The red arrow indicates the estimand (i.e., the effect of the green factor on the red response variable), while orange factors represent the adjustment set required for correct causal effect estimation.](figures/DAG_bush.png)
 
 
-Estimating correctly the effect $bush~cover \rightarrow fruit~removal$ implies conditioning on *native cover*, since it is a common cause of bush cover and fruit removal and its omition would bias our estimation.
+Correctly estimating the effect $bush~cover \rightarrow fruit~removal$ requires conditioning on native vegetation cover, since it is a common cause of both bush cover and fruit removal; omitting it would bias the estimate.
 
 
 ## Mathematical version
@@ -1788,7 +1833,7 @@ names(posterior_pars) <- c('alpha', #'beta_iso',
 
 **Random effects:**
 
-```{r, fig.cap='Country parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution.'}
+```{r, fig.cap='Country parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution.'}
 compare_posterior(posterior_pars$country, 
                   country, 
                   xlab = 'Countries', 
@@ -1797,7 +1842,7 @@ compare_posterior(posterior_pars$country,
 ```
 
 
-```{r, fig.cap='Island parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution.'}
+```{r, fig.cap='Island parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution.'}
 compare_posterior(posterior_pars$island, 
                   islands_pars, 
                   xlab = 'Islands', 
@@ -1805,7 +1850,7 @@ compare_posterior(posterior_pars$island,
                   main = 'Islands parameters')
 ```
 
-```{r, fig.cap='Plant parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Plant parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 
 compare_posterior(posterior_pars$plant, 
                   plants, 
@@ -1815,7 +1860,7 @@ compare_posterior(posterior_pars$plant,
 ```
 
 
-```{r, fig.cap='Grid parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Grid parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 compare_posterior(posterior_pars$grid, 
                   grid, 
                   xlab = 'Grid', 
@@ -1847,13 +1892,10 @@ abline(v = beta_bush, col = 'red', lwd = 2)
 
 # S10. Effect of native vegetation
 
-![The red arrow indicates our estimand (i.e., the effect of the factor in green on the response in red), and orange factors indicate the adjustment set to correctly estimate the causal effect](figures/DAG_nativeV.png)
+![The red arrow indicates the estimand (i.e., the effect of the green factor on the red response variable), while orange factors represent the adjustment set required for correct causal effect estimation.](figures/DAG_nativeV.png)
 
 
-Estimating correctly the effect $native~vegetation \rightarrow fruit~removal$ implies conditioning on two factors that are common causes of our predictor and response variable. 
-
-*native cover*, since it is a common cause of bush cover and fruit removal and its omition would bias our estimation.
-
+Estimating correctly the effect $native~vegetation \rightarrow fruit~removal$ implies conditioning on island isolation since it is a common causes of our predictor and response variable. 
 
 ## Mathematical version
 
@@ -2139,7 +2181,7 @@ names(posterior_pars) <- c('alpha', 'beta_iso',
 
 **Random effects:**
 
-```{r, fig.cap='Country parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Country parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 compare_posterior(posterior_pars$country, 
                   country, 
                   xlab = 'Countries', 
@@ -2148,7 +2190,7 @@ compare_posterior(posterior_pars$country,
 ```
 
 
-```{r, fig.cap='Island parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Island parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 compare_posterior(posterior_pars$island, 
                   islands_pars, 
                   xlab = 'Islands', 
@@ -2156,7 +2198,7 @@ compare_posterior(posterior_pars$island,
                   main = 'Islands parameters')
 ```
 
-```{r, fig.cap='Plant parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Plant parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 
 compare_posterior(posterior_pars$plant, 
                   plants, 
@@ -2166,7 +2208,7 @@ compare_posterior(posterior_pars$plant,
 ```
 
 
-```{r, fig.cap='Grid parameter. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 96% CI of the posterior distribution'}
+```{r, fig.cap='Grid parameters. Red dots indicate the true value, whereas error bars and hollow dots indicate the average and 95 percent CI of the posterior distribution'}
 compare_posterior(posterior_pars$grid, 
                   grid, 
                   xlab = 'Grid', 
@@ -2206,7 +2248,7 @@ par(mfrow = c(1, 1))
 
 # S11 Conclusion 
 
-All models (see sections 6.6, 7.6, 8.6, 9.6 and 10.6) recovered the true parameters of the generative simulation. Indicating that they were well specified, are adequate to detect the target effects, and are ready to be used with the real data. 
+All models (see Sections 6.6, 7.6, 8.6, 9.6, and 10.6) recovered the true parameters of the generative simulation, indicating that they were well-specified and adequate for detecting the target effects. Therefore, our models are ready to be applied to the real data.
 
 
 
