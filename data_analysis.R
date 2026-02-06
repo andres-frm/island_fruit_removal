@@ -2,10 +2,18 @@
 
 sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2', 
          'tidyr', 'tibble', 'forcats', 'rethinking', 
-         'cowplot', 'bayesplot', 'patchwork', 'ggh4x'), 
+         'cowplot', 'bayesplot', 'patchwork', 'ggh4x', 
+         'sf', 'rnaturalearth'), 
        library, character.only = T)
 
 source('functions_mod_diagnostics.r')
+
+color <- 
+  function (acol, alpha = 0.2) {
+    acol <- col2rgb(acol)
+    acol <- rgb(acol[1]/255, acol[2]/255, acol[3]/255, alpha)
+    acol
+  }
 
 # ======== Data preparation =======
 
@@ -4859,6 +4867,135 @@ avg_realms_plot +
 
 ggsave('figure_2.jpeg', width = 20, height = 18, units = 'cm', 
        dpi = 500)
+
+#====== map ======
+
+island_coords <- readRDS('coordinates_islands.rds')
+
+islands_post
+
+islands_post$post_latitude_bird$island %in% 
+  island_coords$island
+
+island_coords_probs <- 
+  lapply(islands_post, FUN = 
+         function(x) {
+           full_join(x[, 1:5], island_coords, by = 'island')
+         })
+
+world_land <- ne_download(scale = 50, type = "land", 
+                          category = "physical", 
+                          returnclass = "sf")
+# 
+
+ggplot() +
+  geom_sf(data = world_land, fill = "gray90", 
+          color = "black", linewidth = 0.1) +
+  geom_hline(yintercept = 0, linetype = 2, 
+             linewidth = 0.25) +
+  geom_point(data = island_coords_probs$post_latitude_lizard, 
+             aes(long, lat, 
+                 color = realm, 
+                 size = mu), 
+             alpha = 0.5) +
+  scale_color_manual(values = c("#66C2A5", '#FC8D62', "#8DA0CB", 
+                                "#E78AC3", "#A6D854", "#FFD92F", 
+                                "#E5C494")) +
+  scale_size_continuous(
+    breaks = seq(0.05, 
+                 0.9, 
+                 length.out = 5)) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(), 
+    legend.key.size = unit(0.1, 'cm'), 
+    
+  )
+
+levels(island_coords_probs$post_latitude_bird$realm)
+
+maps_plots <- 
+  lapply(island_coords_probs, FUN = 
+           function(x) {
+             
+             ggplot() +
+               geom_sf(data = world_land, fill = "gray90", 
+                       color = "black", linewidth = 0.1) +
+               geom_hline(yintercept = 0, linetype = 2, 
+                          linewidth = 0.25) +
+               geom_point(data = x, 
+                          aes(long, lat, 
+                              color = realm, 
+                              size = mu), 
+                          alpha = 0.5) +
+               scale_color_manual(values = c("#66C2A5", '#FC8D62', "#8DA0CB", 
+                                             "#E78AC3", "#A6D854", "#FFD92F", 
+                                             "#E5C494")) +
+               scale_size_continuous(
+                 breaks = seq(0.05, 
+                              1, 
+                              length.out = 5)) +
+               theme_minimal() +
+               lims(y = c(-50, 80)) +
+               theme(
+                 panel.grid = element_blank(), 
+                 axis.title.x = element_blank(), 
+                 axis.text = element_blank(),
+                 legend.position = 'none', 
+                 text = element_text(family = 'Times New Roman')
+               )
+             
+           })
+
+
+maps_plots$post_latitude_tot +
+  labs(y = 'Latitude')
+
+tibble(x = post_latitude_tot$beta$beta_lat) |> 
+  ggplot(aes(x)) +
+  geom_histogram(fill = "#65C1E6", alpha = 0.45, 
+                 linewidth = 0.1, color = 'black', 
+                 bins = 50) +
+  labs(x = expression(beta['latitude']), 
+       y = 'Density') +
+  geom_vline(xintercept = 0, linetype = 1) +
+  theme_classic() +
+  theme(strip.background = element_blank(), 
+        axis.line = element_line(linewidth = 0.35), 
+        axis.title.x = element_text(size = 15), 
+        text = element_text(family = 'Times New Roman'))
+
+beta_alt_plot <- 
+  lapply(1, FUN = 
+         function(x) {
+           b <- post_latitude_tot$beta$beta_lat
+           a <- post_latitude_tot$alpha$alpha
+           q_b <- quantile(b, c(0.1, 0.9))
+           q_a <- quantile(a, c(0.1, 0.9))
+           
+           indx_b <- b >= q_b[1] & b <= q_b[2]
+           indx_a <- a >= q_a[1] & a <= q_a[2]
+           tibble(alpha = a[indx_a], 
+                  beta = b[indx_b])
+         })[[1]]
+
+plot(NULL, xlim = c(-10, 10), ylim = c(0, 1))
+for (i in 1:1000) {
+  curve(inv_logit(beta_alt_plot$alpha[i] +
+                    x*beta_alt_plot$beta[i]), add = T, 
+        col = '#65C1E6', lwd = 0.1)
+}
+
+
+
+plot_grid(maps_plots$post_latitude_tot, 
+          plot_grid(maps_plots$post_latitude_bird,
+                    maps_plots$post_latitude_lizard, 
+                    maps_plots$post_latitude_disp, 
+                    maps_plots$post_latitude_pred,
+                    nrow = 2), ncol = 1)
+
+maps_plots$post_latitude_tot
 
 
 
