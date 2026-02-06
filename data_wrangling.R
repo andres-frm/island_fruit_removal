@@ -45,6 +45,8 @@ coords_islands$realm <- as.factor(coords_islands$realm)
 coords_islands$real_code <- as.numeric(coords_islands$realm)
 levels(coords_islands$realm)
 
+saveRDS(coords_islands, 'coordinates_islands.rds')
+
 jpeg('map.jpeg', width = 20, height = 15, units = 'cm', res = 500)
 par(mar = c(1, 1, 1, 1))
 map("world", col="gray90", fill=TRUE, border="gray50")
