@@ -1,9 +1,12 @@
 ---
-title: "Measuring the macroecological and local effects on plant-animal interaction using artificial fruits"
-subtitle: 'Authors: '
-author: "Supporting Information S1. Journal XXX"
+title: "Island Biogeography Shapes Fruit-frugivore Interactions"
+subtitle: 'Mauro Galetti, Andrés F. Ramírez-Mejía, Haruko Ando, Seheno Andriantsaralaza, Cláudia Baider, Julia Ball, Mayara Guimarães Beltrão, Jedediah Brodie, Rafael Silveira Bueno, Maria Guerrero Campos, Daiane Cristina Carreira, Juliana Cordeiro, Sara Dalton, Bo Dalsgaard, Donald R. Drake, Nik Fadzly bin Nik Rosely, Patricia dos Santos Ferreira, Noemí Matías Ferrer, F. B. Vincent Florens, Francisco E. Fontúrbel, Sara M. E. Gabrielson, Juan Esteban Martínez Gómez, Fernando Gonçalves, Christopher Kaiser-Bunbury, Sam Katerina, Seokmin Kim, Laís Lautenschlager, Shawn Leroux, Alba Costa Lorenzo, Hannah Madden, Kim McConkey, Félix M. Medina, Jayasilan Mohd-Azlan, Raquel Muñoz, Manuel Nogales, Eva K. Nóbrega, Renske Onstein, José Ignacio Orellana, Ana Filipa Palmeirim, Roberto Resendes, Ricardo Rocha, Chanpen Saralamba, Elise Sivault, Tuanjit Sritongchuay, Fabio Tarazona, Maria da Anunciação Mateus Ventura, Jeferson Vizentin-Bugoni, Maximilian Vollstädt, Kenta Watanabe, Xue Xiao, Anna Traveset'
+author: "Supporting Information S1. Journal PNAS"
 format:
   pdf: 
+    fig-dpi: 50
+    fig-format: png
+    dev: "pdf"
     include-in-header:
       text: |
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
