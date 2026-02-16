@@ -1,6 +1,6 @@
 ---
 title: "Island Biogeography Shapes Fruit-frugivore Interactions"
-subtitle: 'Mauro Galetti, Andrés F. Ramírez-Mejía, Haruko Ando, Seheno Andriantsaralaza, Cláudia Baider, Julia Ball, Mayara Guimarães Beltrão, Jedediah Brodie, Rafael Silveira Bueno, Maria Guerrero Campos, Daiane Cristina Carreira, Juliana Cordeiro, Sara Dalton, Bo Dalsgaard, Donald R. Drake, Nik Fadzly bin Nik Rosely, Patricia dos Santos Ferreira, Noemí Matías Ferrer, F. B. Vincent Florens, Francisco E. Fontúrbel, Sara M. E. Gabrielson, Juan Esteban Martínez Gómez, Fernando Gonçalves, Christopher Kaiser-Bunbury, Sam Katerina, Seokmin Kim, Laís Lautenschlager, Shawn Leroux, Alba Costa Lorenzo, Hannah Madden, Kim McConkey, Félix M. Medina, Jayasilan Mohd-Azlan, Raquel Muñoz, Manuel Nogales, Eva K. Nóbrega, Renske Onstein, José Ignacio Orellana, Ana Filipa Palmeirim, Roberto Resendes, Ricardo Rocha, Chanpen Saralamba, Elise Sivault, Tuanjit Sritongchuay, Fabio Tarazona, Maria da Anunciação Mateus Ventura, Jeferson Vizentin-Bugoni, Maximilian Vollstädt, Kenta Watanabe, Xue Xiao, Anna Traveset'
+subtitle: 'Mauro Galetti, Andrés F. Ramírez-Mejía, Haruko Ando, Seheno Andriantsaralaza, Cláudia Baider, Julia Ball, Mayara Guimarães Beltrão, Jedediah Brodie, Rafael Silveira Bueno, Maria Guerrero Campos, Daiane Cristina Carreira, Juliana Cordeiro, Sara Dalton, Bo Dalsgaard, Isabel Donoso, Donald R. Drake, Nik Fadzly bin Nik Rosely, Patricia dos Santos Ferreira, Noemí Matías Ferrer, F. B. Vincent Florens, Francisco E. Fontúrbel, Sara M. E. Gabrielson, Juan Esteban Martínez Gómez, Fernando Gonçalves, Christopher Kaiser-Bunbury, Katerina Sam, Seokmin Kim, Laís Lautenschlager, Shawn J. Leroux, Alba Costa Lorenzo, Hannah Madden, Kim McConkey, Félix M. Medina, Jayasilan Mohd-Azlan, Raquel Muñoz-Gallego, Manuel Nogales, Eva K. Nóbrega, Renske E. Onstein, José Ignacio Orellana, Ana Filipa Palmeirim, Roberto Resendes, Ricardo Rocha, Chanpen Saralamba, Elise Sivault, Tuanjit Sritongchuay, Fabio Tarazona, Maria da Anunciação Mateus Ventura, Jeferson Vizentin-Bugoni, Maximilian Vollstädt, Kenta Watanabe, Xue Xiao, Anna Traveset'
 author: "Supporting Information S3. Journal PNAS"
 format:
   pdf: 
@@ -350,6 +350,33 @@ slope_pars <-
 
 # S5. Models: Mathematical Notation
 
+## Adjustment Sets for Estimating Causal Effects
+
+Adjustment sets of covariates used to condition the models to estimate specific causal effects. These sets were derived from the causal model in Supporting Information S1 (Section S3) using the back-door criterion.
+
+| Causal effect | Adjustment set of covariates |
+|---------------|------------------------------|
+| Latitude      |   No adjustment set is needed  |
+||
+| Biogeographical realm | No adjustment set is needed  |
+||
+| Island isolation | Type of island |
+||
+| Island size | Type of island |
+||
+| Island altitude | Type of island |
+||
+| Human footprint | Human population |
+||
+| Native cover | Human footprint |
+|              | Island altitude |
+|              | Island isolation |
+|              | Temperature |
+|              | Invasive rank |
+||
+| Bush cover | Native vegetation |
+|            | Temperature |
+
 ## Overall Model Notation
 
 All models share the same structure for random effects and account for correlation among islands, but differ in the adjustment set of predictors required to estimate the correct causal effect. We therefore present the general mathematical notation here; the specific adjustment sets for each model are provided in the subsequent sections.
@@ -405,33 +432,6 @@ $$
 \end{aligned}
 $$
 
-
-## Adjustment Sets for Estimating Causal Effects
-
-Adjustment sets of covariates used to condition the models to estimate specific causal effects. These sets were derived from the causal model in Supporting Information S1 (Section S3) using the back-door criterion.
-
-| Causal effect | Adjustment set of covariates |
-|---------------|------------------------------|
-| Latitude      |   No adjustment set is needed  |
-||
-| Biogeographical realm | No adjustment set is needed  |
-||
-| Island isolation | Type of island |
-||
-| Island size | Type of island |
-||
-| Island altitude | Type of island |
-||
-| Human footprint | Human population |
-||
-| Native cover | Human footprint |
-|              | Island altitude |
-|              | Island isolation |
-|              | Temperature |
-|              | Invasive rank |
-||
-| Bush cover | Native vegetation |
-|            | Temperature |
 
 
 # S6. Effect of Latitude
