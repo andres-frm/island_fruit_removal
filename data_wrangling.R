@@ -11,6 +11,16 @@ d <- read_xlsx('ilhas2025.xlsx', sheet = 1, col_names = T, na = 'NA')
 
 str(d)
 
+sum(d$fate_bin)
+
+table <- tibble(Type = unique(d$frugivore), 
+       `% of fruit attacked` = 
+         sapply(unique(d$frugivore), function(x) mean(d$frugivore == x))) |> 
+  #filter(Type != 'Mammal_non_rodent') |> 
+  mutate(s = sum(`% of fruit attacked`))
+
+sum(table[table$Type != 'None', ]$`% of fruit attacked`)
+
 summary(d)
 
 apply(d, 2, function(x) mean(is.na(x)))

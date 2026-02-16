@@ -2281,6 +2281,62 @@ names(post_altitude_tot) <- c('alpha',
                           'p_plant', 'p_realm', 
                           'p_ecoR', 'p_biome')
 
+islands_id <- tibble(island_name = d$island, 
+                     code = dat$island) |> unique()
+
+islands_id <- islands_id[order(islands_id$code), ]
+
+
+altitude_est <- 
+  function(posterior, model){
+    
+    alt <- 
+      lapply(seq_along(islands_id$island_name), FUN =
+               function(x) {
+                 
+                 i <- islands_id$code[x]
+                 island_name <- islands_id$island_name[x]
+                 
+                 indx_xvar <- which(dat$island == i)
+                 indx_count <- unique(dat$country[indx_xvar])
+                 indx_is <- unique(dat$island[indx_xvar])
+                 indx_grid <- unique(dat$grid[indx_xvar])
+                 indx_plant <- unique(dat$plant_ID[indx_xvar])
+                 indx_ecoR <- unique(dat$ecoregion[indx_xvar])
+                 indx_biome <- unique(dat$biome[indx_xvar])
+                 indx_TI <- unique(dat$island_type[indx_xvar])
+                 indx_altitude <- median(dat$altitude_m[indx_xvar])
+                 
+                 est <-
+                   with(posterior,
+                        {
+                          inv_logit(alpha$alpha +
+                                      beta$beta_I_alt *  indx_altitude +
+                                      TI[, indx_TI, drop = T] +
+                                      p_island[, i, drop = T] +
+                                      p_country[, indx_count, drop = T] +
+                                      apply(p_grid[, indx_grid], 1, median) +
+                                      apply(p_plant[, indx_plant], 1, median) +
+                                      apply(p_ecoR[, indx_ecoR], 1, median) +
+                                      apply(p_biome[, indx_biome], 1, median)
+                          )
+                        })
+                 
+                 tibble(island_code = i,
+                        island_name = island_name,
+                        alt = indx_altitude,
+                        prob_mu = median(est),
+                        li = quantile(est, 0.025),
+                        ls = quantile(est, 0.975))
+                 
+               })
+    
+    alt <- do.call('rbind', alt)
+    alt$model <- model
+    alt
+  }
+
+(frugivory_alt <- altitude_est(post_altitude_tot, 'Frugivory'))
 
 
 # =============== Fruit dispersion  ======================
@@ -2382,6 +2438,49 @@ names(post_altitude_disp) <- c('alpha',
                            'p_country', 'p_grid', 
                            'p_plant', 'p_realm', 
                            'p_ecoR', 'p_biome')
+
+dispersion_alt <- 
+  lapply(seq_along(islands_id$island_name), FUN =
+           function(x) {
+             
+             i <- islands_id$code[x]
+             island_name <- islands_id$island_name[x]
+             
+             indx_xvar <- which(dat$island == i)
+             indx_count <- unique(dat$country[indx_xvar])
+             indx_is <- unique(dat$island[indx_xvar])
+             indx_grid <- unique(dat$grid[indx_xvar])
+             indx_plant <- unique(dat$plant_ID[indx_xvar])
+             indx_ecoR <- unique(dat$ecoregion[indx_xvar])
+             indx_biome <- unique(dat$biome[indx_xvar])
+             indx_TI <- unique(dat$island_type[indx_xvar])
+             indx_altitude <- median(dat$altitude_m[indx_xvar])
+             
+             est <-
+               with(post_altitude_disp,
+                    {
+                      inv_logit(alpha$alpha +
+                                  beta$beta_I_alt *  indx_altitude +
+                                  TI[, indx_TI, drop = T] +
+                                  p_island[, i, drop = T] +
+                                  p_country[, indx_count, drop = T] +
+                                  apply(p_grid[, indx_grid], 1, median) +
+                                  apply(p_plant[, indx_plant], 1, median) +
+                                  apply(p_ecoR[, indx_ecoR], 1, median) +
+                                  apply(p_biome[, indx_biome], 1, median)
+                      )
+                    })
+             
+             tibble(island_code = i,
+                    island_name = island_name,
+                    alt = indx_altitude,
+                    prob_mu = median(est),
+                    li = quantile(est, 0.025),
+                    ls = quantile(est, 0.975))
+             
+           })
+
+frugivory_alt <- do.call('rbind', frugivory_alt)
 
 
 # =============== Birds  ======================
@@ -4878,41 +4977,215 @@ islands_post$post_latitude_bird$island %in%
   island_coords$island
 
 island_coords_probs <- 
-  lapply(islands_post, FUN = 
+  lapply(1, FUN = 
          function(x) {
-           full_join(x[, 1:5], island_coords, by = 'island')
-         })
+           
+           set.seed(23061993)
+           
+           tot <- islands_post$post_latitude_tot[, c('mu', 'island')]
+           colnames(tot)[1] <- paste0(colnames(tot)[1], '_tot')
+           
+           disper <- islands_post$post_latitude_disp[, c('mu', 'island')]
+           colnames(disper)[1] <- paste0(colnames(disper)[1], '_disp')
+           
+           pred <- islands_post$post_latitude_pred[, c('mu', 'island')]
+           colnames(pred)[1] <- paste0(colnames(pred)[1], '_pred')
+           
+           dd <- full_join(full_join(disper, pred, by = c('island')), 
+                           island_coords, by = 'island')
+           dd <- full_join(tot, dd, by = 'island')
+           dd$lat[grep('Baha', dd$ecoregion)] <- 
+             dd$lat[grep('Baha', dd$ecoregion)] +
+             rnorm(length(grep('Baha', dd$ecoregion)), 
+                   0, 2.5)
+           
+           dd$long[grep('Baha', dd$ecoregion)] <- 
+             dd$long[grep('Baha', dd$ecoregion)] +
+             rnorm(length(grep('Baha', dd$ecoregion)), 
+                   0, 2.5)
+           
+           dd
+           
+         })[[1]]
+
 
 world_land <- ne_download(scale = 50, type = "land", 
                           category = "physical", 
                           returnclass = "sf")
-# 
 
-ggplot() +
-  geom_sf(data = world_land, fill = "gray90", 
+#map_plot1 <- 
+  ggplot() +
+  geom_sf(data = world_land, fill = "white", 
           color = "black", linewidth = 0.1) +
-  geom_hline(yintercept = 0, linetype = 2, 
+  geom_hline(yintercept = 0, linetype = 1,
              linewidth = 0.25) +
-  geom_point(data = island_coords_probs$post_latitude_lizard, 
+  geom_point(data = island_coords_probs, 
              aes(long, lat, 
-                 color = realm, 
-                 size = mu), 
-             alpha = 0.5) +
-  scale_color_manual(values = c("#66C2A5", '#FC8D62', "#8DA0CB", 
-                                "#E78AC3", "#A6D854", "#FFD92F", 
-                                "#E5C494")) +
+                 size = mu_pred, 
+                 color = mu_disp)) +
+  scale_color_viridis_c(alpha = 0.7, 
+                        direction = -1) +
+  geom_point(data = island_coords_probs, 
+             aes(long, lat, 
+                 size = mu_pred, 
+                 stroke = 0.15), 
+             pch = 1) +
+  labs(y = '') +
   scale_size_continuous(
-    breaks = seq(0.05, 
-                 0.9, 
+    breaks = seq(0.07,
+                 0.9,
                  length.out = 5)) +
+  scale_alpha_continuous(breaks = seq(0.05,
+                                      0.9,
+                                      length.out = 5)) +
   theme_minimal() +
+  scale_y_continuous(
+    labels = function(x) sprintf("%.1f", x)  # 1 decimal, sin símbolo de grado
+  ) +
+  coord_sf(
+    ylim = c(-80, 80),  # Instead of lims(y = ...)
+    expand = FALSE
+  ) +
+  lims(y = c(-80, 80)) +
   theme(
     panel.grid = element_blank(), 
-    legend.key.size = unit(0.1, 'cm'), 
-    
+    axis.title.x = element_blank(), 
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 10),
+    legend.position = 'top', 
+    legend.title = element_blank(),
+    legend.direction = 'vertical',
+    text = element_text(family = 'Times New Roman')
   )
 
-levels(island_coords_probs$post_latitude_bird$realm)
+
+ggsave('map1.svg', width = 25, height = 15, dpi = 1e3, units = 'cm')
+
+
+map2 <- 
+  lapply(split(island_coords_probs, island_coords_probs$realm), 
+         FUN = function(x) {
+           ggplot() +
+             geom_sf(data = world_land, fill = "white", 
+                     color = "black", linewidth = 0.1) +
+             geom_hline(yintercept = 0, linetype = 1,
+                        linewidth = 0.25) +
+             geom_point(data = island_coords_probs, 
+                        aes(long, lat, 
+                            size = mu_pred, 
+                            color = mu_disp)) +
+             scale_color_viridis_c(alpha = 0.7, 
+                                   direction = -1) +
+             geom_point(data = island_coords_probs, 
+                        aes(long, lat, 
+                            size = mu_pred, 
+                            stroke = 0.15), 
+                        pch = 1) +
+             labs(y = '') +
+             scale_size_continuous(
+               breaks = seq(0.07,
+                            0.9,
+                            length.out = 5)) +
+             scale_alpha_continuous(breaks = seq(0.05,
+                                                 0.9,
+                                                 length.out = 5)) +
+             theme_minimal() +
+             scale_y_continuous(
+               labels = function(x) sprintf("%.1f", x)  # 1 decimal, sin símbolo de grado
+             ) +
+             coord_sf(
+               ylim = c(-80, 80),  # Instead of lims(y = ...)
+               expand = FALSE
+             ) +
+             lims(y = c(-80, 80)) +
+             theme(
+               panel.grid = element_blank(), 
+               axis.title.x = element_blank(), 
+               axis.text.x = element_blank(),
+               axis.text.y = element_text(size = 10),
+               legend.position = 'top', 
+               legend.title = element_blank(),
+               legend.direction = 'vertical',
+               text = element_text(family = 'Times New Roman')
+             )
+         })
+
+
+
+
+
+
+island_coords_probs$x_random <- rep(1, 43) + rnorm(43, 0, 0.02)
+
+#plot_tot_frugivory <- 
+  ggplot() +
+  geom_point(data = island_coords_probs, 
+             aes(x_random, lat, size = mu_tot), 
+             alpha = 0.5, stroke = 0.25, 
+             color = '#36648B') +
+  geom_point(data = island_coords_probs, 
+             aes(x_random, lat, size = mu_tot),
+             stroke = 0.25, 
+             pch = 1) +
+  lims(x = c(0.95, 1.5), y = c(-55, 80)) +
+  labs(y = 'Latitude') +
+  scale_size_continuous(
+    breaks = seq(0.07,
+                 0.9,
+                 length.out = 6)) +
+  scale_y_continuous(breaks = c(-40, -20, 0, 20, 40, 60, 80)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = 1, linewidth = 0.25) +
+  theme(
+    panel.grid = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.line.y = element_line(linewidth = 0.25),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 10),
+    legend.position = c(0.6, 0.8), 
+    text = element_text(family = 'Times New Roman')
+  )
+  
+ggsave('map2.svg', width = 15, height = 15, dpi = 1e3, units = 'cm')
+
+
+ggplot() +
+  geom_point(data = island_coords_probs, 
+             aes(mu_tot, lat, size = mu_tot), 
+             alpha = 0.5, stroke = 0.25, 
+             color = '#36648B') +
+  geom_point(data = island_coords_probs, 
+             aes(mu_tot, lat, size = mu_tot),
+             stroke = 0.25, 
+             pch = 1) +
+  coord_cartesian(ylim = c(-60, 80)) +
+  labs(y = 'Latitude', x = 'P(frugivory)') +
+  scale_size_continuous(
+    breaks = seq(0.07,
+                 0.9,
+                 length.out = 6)) +
+  scale_y_continuous(n.breaks = 6, 
+                     breaks = seq(-60, 80, by = 20)) +
+  theme_classic() +
+  geom_hline(yintercept = 0, linetype = 1, linewidth = 0.25) +
+  theme(
+    axis.ticks = element_line(linewidth = 0.25),
+    axis.line.x = element_line(linewidth = 0.25),
+    axis.line.y = element_line(linewidth = 0.25),
+    axis.text.y = element_text(size = 10),
+    legend.position = c(0.8, 0.9), 
+    text = element_text(family = 'Times New Roman')
+  )
+
+ggsave('map2_2.svg', width = 7, height = 15, dpi = 1e3, units = 'cm')
+
+
+map_plot1 + 
+  inset_element(plot_tot_frugivory, 
+                left = -0.05,
+                bottom = -0.06,
+                right = 1,
+                top = 1)
 
 maps_plots <- 
   lapply(island_coords_probs, FUN = 
@@ -4953,17 +5226,18 @@ maps_plots$post_latitude_tot +
 
 tibble(x = post_latitude_tot$beta$beta_lat) |> 
   ggplot(aes(x)) +
-  geom_histogram(fill = "#65C1E6", alpha = 0.45, 
-                 linewidth = 0.1, color = 'black', 
-                 bins = 50) +
-  labs(x = expression(beta['latitude']), 
+  geom_density(fill = "#36648B", alpha = 0.45, 
+                 linewidth = 0.1, color = 'black') +
+  labs(x = expression(beta['effect of latitude']), 
        y = 'Density') +
-  geom_vline(xintercept = 0, linetype = 1) +
+  geom_vline(xintercept = 0, linetype = 3) +
   theme_classic() +
   theme(strip.background = element_blank(), 
-        axis.line = element_line(linewidth = 0.35), 
+        axis.line = element_line(linewidth = 0.25), 
+        axis.ticks = element_line(linewidth = 0.25),
         axis.title.x = element_text(size = 15), 
         text = element_text(family = 'Times New Roman'))
+ggsave('map3.svg', width = 5, height = 5, dpi = 1e3, units = 'cm')
 
 beta_alt_plot <- 
   lapply(1, FUN = 
@@ -4996,6 +5270,32 @@ plot_grid(maps_plots$post_latitude_tot,
                     nrow = 2), ncol = 1)
 
 maps_plots$post_latitude_tot
+
+# effect of altitude
+
+(frugivory_alt <- altitude_est(post_altitude_tot, 'Frugivory'))
+
+(bird_alt <- altitude_est(post_altitude_bird, 'Bird frugivory'))
+bird_alt$x_random <- rep(1, 43) + rnorm(43, 0, 0.025)
+plot(bird_alt$alt ~ bird_alt$x_random, 
+     cex = bird_alt$prob_mu, 
+     xlim = c(0.5, 1.5))
+
+(dispersal_alt <- altitude_est(post_altitude_disp, 'Seed dispersal'))
+dispersal_alt$x_random <- rep(1, 43) + rnorm(43, 0, 0.025)
+plot(dispersal_alt$alt ~ dispersal_alt$x_random, 
+     cex = dispersal_alt$prob_mu * 2.5, 
+     xlim = c(0.5, 1.5))
+
+(predation_alt <- altitude_est(post_altitude_pred, 'Seed predation'))
+plot(predation_alt$alt, predation_alt$prob_mu)
+predation_alt$x_random <- rep(1, 43) + rnorm(43, 0, 0.025)
+plot(predation_alt$alt ~ predation_alt$x_random, 
+     cex = predation_alt$prob_mu * 2, 
+     xlim = c(0.5, 1.5))
+
+
+#
 
 
 
