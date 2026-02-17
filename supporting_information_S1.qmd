@@ -3,12 +3,10 @@ title: "Island Biogeography Shapes Fruit-frugivore Interactions"
 subtitle: 'Mauro Galetti, Andrés F. Ramírez-Mejía, Haruko Ando, Seheno Andriantsaralaza, Cláudia Baider, Julia Ball, Mayara Guimarães Beltrão, Jedediah Brodie, Rafael Silveira Bueno, Maria Guerrero Campos, Daiane Cristina Carreira, Juliana Cordeiro, Sara Dalton, Bo Dalsgaard, Isabel Donoso, Donald R. Drake, Nik Fadzly bin Nik Rosely, Patricia dos Santos Ferreira, Noemí Matías Ferrer, F. B. Vincent Florens, Francisco E. Fontúrbel, Sara M. E. Gabrielson, Juan Esteban Martínez Gómez, Fernando Gonçalves, Christopher Kaiser-Bunbury, Katerina Sam, Seokmin Kim, Laís Lautenschlager, Shawn J. Leroux, Alba Costa Lorenzo, Hannah Madden, Kim McConkey, Félix M. Medina, Jayasilan Mohd-Azlan, Raquel Muñoz-Gallego, Manuel Nogales, Eva K. Nóbrega, Renske E. Onstein, José Ignacio Orellana, Ana Filipa Palmeirim, Roberto Resendes, Ricardo Rocha, Chanpen Saralamba, Elise Sivault, Tuanjit Sritongchuay, Fabio Tarazona, Maria da Anunciação Mateus Ventura, Jeferson Vizentin-Bugoni, Maximilian Vollstädt, Kenta Watanabe, Xue Xiao, Anna Traveset'
 author: "Supporting Information S1. Journal PNAS"
 format:
-  pdf: 
-    fig-dpi: 50
-    fig-format: png
-    dev: "pdf"
+  docx: 
     include-in-header:
       text: |
+        \renewcommand{\thesection}{S\arabic{section}}
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
         \renewcommand{\thefigure}{S\arabic{figure}}
         \renewcommand{\thetable}{S\arabic{table}}
@@ -19,12 +17,11 @@ format:
           commandchars=\\\{\}  
         }
         \usepackage{xcolor} 
-    toc: true
-    toc-depth: 10
     number-sections: true
     colorlinks: true
     code-line-numbers: false
-    code-font-size: small
+toc: true
+toc-depth: 10
 number-sections: true
 number-depth: 100
 date-format: full 

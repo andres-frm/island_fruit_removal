@@ -3,12 +3,10 @@ title: "Island Biogeography Shapes Fruit-frugivore Interactions"
 subtitle: 'Mauro Galetti, Andrés F. Ramírez-Mejía, Haruko Ando, Seheno Andriantsaralaza, Cláudia Baider, Julia Ball, Mayara Guimarães Beltrão, Jedediah Brodie, Rafael Silveira Bueno, Maria Guerrero Campos, Daiane Cristina Carreira, Juliana Cordeiro, Sara Dalton, Bo Dalsgaard, Isabel Donoso, Donald R. Drake, Nik Fadzly bin Nik Rosely, Patricia dos Santos Ferreira, Noemí Matías Ferrer, F. B. Vincent Florens, Francisco E. Fontúrbel, Sara M. E. Gabrielson, Juan Esteban Martínez Gómez, Fernando Gonçalves, Christopher Kaiser-Bunbury, Katerina Sam, Seokmin Kim, Laís Lautenschlager, Shawn J. Leroux, Alba Costa Lorenzo, Hannah Madden, Kim McConkey, Félix M. Medina, Jayasilan Mohd-Azlan, Raquel Muñoz-Gallego, Manuel Nogales, Eva K. Nóbrega, Renske E. Onstein, José Ignacio Orellana, Ana Filipa Palmeirim, Roberto Resendes, Ricardo Rocha, Chanpen Saralamba, Elise Sivault, Tuanjit Sritongchuay, Fabio Tarazona, Maria da Anunciação Mateus Ventura, Jeferson Vizentin-Bugoni, Maximilian Vollstädt, Kenta Watanabe, Xue Xiao, Anna Traveset'
 author: "Supporting Information S3. Journal PNAS"
 format:
-  pdf: 
-    fig-dpi: 50
-    fig-format: png
-    dev: "pdf"
+  docx: 
     include-in-header:
       text: |
+        \renewcommand{\thesection}{S\arabic{section}}
         \renewcommand{\thesubsection}{S\arabic{section}.\arabic{subsection}}
         \renewcommand{\thefigure}{S\arabic{figure}}
         \renewcommand{\thetable}{S\arabic{table}}
@@ -19,12 +17,11 @@ format:
           commandchars=\\\{\}  
         }
         \usepackage{xcolor} 
-    toc: true
-    toc-depth: 10
     number-sections: true
     colorlinks: true
     code-line-numbers: false
-    code-font-size: small
+toc: true
+toc-depth: 10
 number-sections: true
 number-depth: 100
 date-format: full 
@@ -5765,8 +5762,9 @@ label <- 'Probability of fruit consumption across islands, by biogeographical re
 
 knitr::kable(do.call('rbind', islands_post)[,-7], 
              digits = 3, 
-             caption = label) |> 
-  kable_styling(font_size = 8)
+             caption = label, 
+             format = 'pandoc') #|> 
+  #kable_styling(font_size = 8)
 
 ```
 
@@ -6027,7 +6025,7 @@ kable(rbind(full_join(TI_tot, codes$island_type, 'code') |>
             ls = quantile(y, 0.975)) |> 
   unique(), 
   digits = 3, 
-  caption = label)
+  caption = label, format = 'pandoc')
 ```
 
 
@@ -6051,7 +6049,7 @@ kable(rbind(full_join(realm_tot, codes$real, 'code') |>
             ls = quantile(y, 0.975)) |> 
   unique(), 
   digits = 3, 
-  caption = label)
+  caption = label, format = 'pandoc')
 ```
 
 ## Contrasts
@@ -6128,8 +6126,9 @@ label <- 'Contrast of fruit consumption probabilities across island types'
 
 knitr::kable(comtrast_type_islands, 
              caption = label, 
-             digits = 3) |> 
-  kable_styling(font_size = 8)
+             digits = 3, 
+             format = 'pandoc') #|> 
+  #kable_styling(font_size = 8)
 ```
 
 ### Biogeographic realms
@@ -6209,8 +6208,8 @@ label <- 'Contrast of fruit consumption probability among biogeographical realms
 
 knitr::kable(contrast_realms, 
              caption = label, 
-             digits = 3) |> 
-  kable_styling(font_size = 8)
+             digits = 3, format = 'pandoc') #|> 
+  #kable_styling(font_size = 8)
 ```
 
 ## Continuous factors
@@ -6240,8 +6239,8 @@ lab <- 'Slope parameters of factors affecting frugivory interactions on islands 
 
 knitr::kable(all_betas, 
              caption = lab, 
-             digits = 3) |> 
-  kable_styling(font_size = 8)
+             digits = 3, format = 'pandoc') #|> 
+  #kable_styling(font_size = 8)
 
 ```
 
@@ -7294,8 +7293,8 @@ label <- 'Causal effects of main factors affecting the probability of fruit cons
 
 knitr::kable(causal_effects_estimates, 
              caption = label, 
-             digits = 5) |> 
-  kable_styling(font_size = 5)
+             digits = 5, format = 'pandoc')# |> 
+  #kable_styling(font_size = 5)
 
 ```
 
@@ -7329,7 +7328,7 @@ zzz <- do.call('rbind', zzz)
 
 knitr::kable(zzz[order(zzz$frugivory_type), ],
              digits = 3,
-             caption = 'Average causal effect of simulated scenarios of 1SD.')
+             caption = 'Average causal effect of simulated scenarios of 1SD.', format = 'pandoc')
 ```
 
 
