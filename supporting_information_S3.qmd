@@ -49,6 +49,45 @@ sapply(c('cmdstanr', 'readxl', 'magrittr', 'dplyr', 'ggplot2',
 
 ```
 
+## `R` packages citations
+
+The following `R` packages were used in at least one of the Supporting Information materials:
+
+We used tibble 3.3.0 (Müller and Wickham 2016), forcats 1.0.0 (Wickham 2016b), lubridate 1.9.4 (Grolemund & Wickham, 2011), magrittr 2.0.3 (Bache and Wickham 2014), dplyr 1.1.4 (Wickham et al., 2023), rethinking 2.42 (McElreath 2018), readxl 1.4.5 (Wickham and Bryan 2015), tidyr 1.3.1 (Wickham et al. 2014b), maps 3.4.3 (Becker et al. 2003), mapdata 2.3.1 (Becker & Wilks 2003), and geosphere 1.5-20 (Hijmans 2010) for data wrangling; package MASS 7.3-65 (Venables and Ripley 2003) for simulating random values of MVNormal distribution, and ggplot2 3.5.2 (Wickham 2016a) and cowplot 1.2 (Wilke 2015) for plotting tasks. 
+
+
+
+**citation:**
+
+```{r}
+lapply(sapply(c('tibble', 'forcats', 'lubridate', 'magrittr', 'magrittr', 
+                'dplyr', 'rethinking', 'readxl', 'tidyr', 'maps', 'mapdata', 
+                'geosphere', 'MASS', 'ggplot2', 'cowplot'), 
+              FUN = 
+                function(x) {
+                  citation(x)
+                }), 
+       FUN = 
+         function(pkg) {
+           
+           aut <- "init"
+           
+           for (i in seq_along(pkg$author)) {
+             aut <- paste(aut, ', ', pkg$author[i])
+           }
+           aut <-  gsub('^(init ,  )(.*)$', '\\2', aut)
+           
+           paste0(aut, '. ',
+                  pkg$year, '. ',
+                  pkg$title, '. ',
+                  pkg$url, '. ', 
+                  pkg$doi, '. ')
+           
+           
+         }
+)
+```
+
 
 # S3. Data wrangling
 
