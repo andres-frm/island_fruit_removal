@@ -4951,12 +4951,13 @@ layout <-
 '
 
 avg_realms_plot +
+  plots_islands_realm$post_latitude_bird +
+  labs(y = '', x = '') +
   plots_islands_realm$post_latitude_tot +
   plots_islands_realm$post_latitude_disp +
-  plots_islands_realm$post_latitude_pred + 
   labs(y = 'P(fruit consumption)', x = 'Islands') +
-  plots_islands_realm$post_latitude_bird +
-  labs(y = '') +
+  plots_islands_realm$post_latitude_pred + 
+  labs(y = '', x = 'Islands') +
   plots_islands_realm$post_latitude_lizard +
   plot_layout(design = layout, 
               widths = c(1, 1, 1, 1, 1, 0.5)) +
