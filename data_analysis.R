@@ -5014,23 +5014,25 @@ world_land <- ne_download(scale = 50, type = "land",
                           category = "physical", 
                           returnclass = "sf")
 
+# all maps
+
 #map_plot1 <- 
   ggplot() +
-  geom_sf(data = world_land, fill = "white", 
+  geom_sf(data = world_land, fill = 'ivory', 
           color = "black", linewidth = 0.1) +
   geom_hline(yintercept = 0, linetype = 1,
              linewidth = 0.25) +
   geom_point(data = island_coords_probs, 
              aes(long, lat, 
                  size = mu_pred, 
-                 color = mu_disp)) +
+                 color = mu_disp),
+             pch = 16) +
   scale_color_viridis_c(alpha = 0.7, 
                         direction = -1) +
   geom_point(data = island_coords_probs, 
              aes(long, lat, 
-                 size = mu_pred, 
-                 stroke = 0.15), 
-             pch = 1) +
+                 size = mu_pred), 
+             pch = 1, stroke = 0) +
   labs(y = '') +
   scale_size_continuous(
     breaks = seq(0.07,
@@ -5188,42 +5190,33 @@ map_plot1 +
                 right = 1,
                 top = 1)
 
-maps_plots <- 
-  lapply(island_coords_probs, FUN = 
-           function(x) {
-             
-             ggplot() +
-               geom_sf(data = world_land, fill = "gray90", 
-                       color = "black", linewidth = 0.1) +
-               geom_hline(yintercept = 0, linetype = 2, 
-                          linewidth = 0.25) +
-               geom_point(data = x, 
-                          aes(long, lat, 
-                              color = realm, 
-                              size = mu), 
-                          alpha = 0.5) +
-               scale_color_manual(values = c("#66C2A5", '#FC8D62', "#8DA0CB", 
-                                             "#E78AC3", "#A6D854", "#FFD92F", 
-                                             "#E5C494")) +
-               scale_size_continuous(
-                 breaks = seq(0.05, 
-                              1, 
-                              length.out = 5)) +
-               theme_minimal() +
-               lims(y = c(-50, 80)) +
-               theme(
-                 panel.grid = element_blank(), 
-                 axis.title.x = element_blank(), 
-                 axis.text = element_blank(),
-                 legend.position = 'none', 
-                 text = element_text(family = 'Times New Roman')
-               )
-             
-           })
+ggplot() +
+  geom_sf(data = world_land, fill = "gray90", 
+          color = "black", linewidth = 0.1) +
+  geom_hline(yintercept = 0, linetype = 2, 
+             linewidth = 0.25) +
+  geom_point(data = island_coords_probs, 
+             aes(long, lat, 
+                 color = realm), 
+             alpha = 0.5) +
+  scale_color_manual(values = c("#66C2A5", '#FC8D62', "#8DA0CB", 
+                                "#E78AC3", "#A6D854", "#FFD92F", 
+                                "#E5C494")) +
+  scale_size_continuous(
+    breaks = seq(0.05, 
+                 1, 
+                 length.out = 5)) +
+  theme_minimal() +
+  lims(y = c(-50, 80)) +
+  theme(
+    panel.grid = element_blank(), 
+    axis.title.x = element_blank(), 
+    axis.text = element_blank(),
+    legend.position = 'none', 
+    text = element_text(family = 'Times New Roman')
+  )
 
 
-maps_plots$post_latitude_tot +
-  labs(y = 'Latitude')
 
 tibble(x = post_latitude_tot$beta$beta_lat) |> 
   ggplot(aes(x)) +
@@ -6587,6 +6580,27 @@ split(all_betas[all_betas$significant == T, ],
       all_betas[all_betas$significant == T, ]$`Fruit consumption`)
 #"#E41A1C" "#377EB8" "#4DAF4A" "#984EA3" "#FF7F00" 
 # lizard  predation. total      bird.    'disp
+
+# Effects of biogeographical (latitude), 
+# island attributes (area, isolation, elevation, human footprint, native vegetation in the island), 
+# and local factors (bush cover) 
+
+all_betas$predictor[grep('size', all_betas$predictor)] <- "Island\narea  "
+all_betas$predictor[grep('altitude', all_betas$predictor)] <- "Island  \nelevation"
+
+all_betas$predictor <- as.factor(all_betas$predictor)
+
+levels(all_betas$predictor)
+
+all_betas$predictor <- factor(all_betas$predictor, 
+                              levels = c("Bush\ncover",
+                                         "Native   \nvegetation",
+                                         "Human \nfootprint",
+                                         "Island  \nelevation",
+                                         "Island  \nisolation",
+                                         'Island\narea  ',
+                                         'Latitude'))
+
 plot_beta_continuous <- 
   all_betas |> 
   ggplot(aes(predictor, mu, ymin = li, ymax = ls, 
@@ -6651,7 +6665,7 @@ plot_beta_continuous <-
     legend.title = element_blank(),
     legend.text = element_text(size = 8),
     legend.background = element_blank(),
-    legend.position = c(0.2, 0.92),
+    legend.position = c(0.2, 0.1),
     legend.box.background = element_blank(), 
     legend.key.size = unit(3, 'mm'), 
     text = element_text(family = 'Times New Roman', size = 12)
@@ -6767,6 +6781,24 @@ causal_df$intervention[grep("10th vs. 90th\npercentile",
   '10th vs. 90th\n percentile'
 
 unique(causal_df$intervention)
+
+unique(causal_df$var)
+
+causal_df$var[grep('size', causal_df$var)] <- "Island area"
+causal_df$var[grep('altitude', causal_df$var)] <- "Island elevation"
+
+causal_df$var <- as.factor(causal_df$var)
+
+levels(causal_df$var)
+
+causal_df$var <- factor(causal_df$var, 
+                              levels = c('Latitude',
+                                         'Island area',
+                                         "Island isolation",
+                                         "Island elevation",
+                                         "Human footprint",
+                                         "Native vegetation",
+                                         "Bush cover"))
 
 ggplot(causal_df, aes(intervention, mu, ymin = li, ymax = ls, 
            color = frugivory_type)) +
