@@ -4508,7 +4508,7 @@ plots_islands_realm <-
                      legend.position = c(0.15, 0.8), 
                      legend.box.background = element_blank(), 
                      legend.key.size = unit(4, 'mm'),
-                     text = element_text(family = 'Times New Roman'),
+                     text = element_text(family = 'serif'),
                      strip.background = element_blank(), 
                      axis.line = element_line(linewidth = 0.25), 
                      axis.ticks = element_line(linewidth = 0.25))
@@ -4555,7 +4555,7 @@ plots_islands_realm$post_latitude_lizard <-
 #         legend.position = c(0.15, 0.85), 
 #         legend.box.background = element_blank(), 
 #         legend.key.size = unit(4, 'mm'),
-#         text = element_text(family = 'Times New Roman'),
+#         text = element_text(family = 'serif'),
 #         strip.background = element_blank(), 
 #         axis.line = element_line(linewidth = 0.25), 
 #         axis.ticks = element_line(linewidth = 0.25))
@@ -4603,7 +4603,7 @@ plots_islands_type <-
                      legend.position = c(0.15, 0.8), 
                      legend.box.background = element_blank(), 
                      legend.key.size = unit(4, 'mm'),
-                     text = element_text(family = 'Times New Roman'),
+                     text = element_text(family = 'serif'),
                      strip.background = element_blank(), 
                      axis.line = element_line(linewidth = 0.25), 
                      axis.ticks = element_line(linewidth = 0.25))
@@ -4649,7 +4649,7 @@ plots_islands_type$post_latitude_tot <-
         legend.position = c(0.15, 0.9), 
         legend.box.background = element_blank(), 
         legend.key.size = unit(4, 'mm'),
-        text = element_text(family = 'Times New Roman'),
+        text = element_text(family = 'serif'),
         strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.25), 
         axis.ticks = element_line(linewidth = 0.25))
@@ -4667,6 +4667,8 @@ plots_islands_type$post_latitude_tot +
 
 ggsave('figure_3.jpeg', width = 18, height = 18, units = 'cm', 
        dpi = 500)
+
+
 
 
 # ============= Slops ===========
@@ -4748,7 +4750,7 @@ plot_disp_pred_islands <-
     legend.position = c(0.24, 0.8),
     legend.box.background = element_blank(), 
     legend.key.size = unit(3.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 plot_frugivory_islands <- 
@@ -4779,7 +4781,7 @@ plot_frugivory_islands <-
     legend.position = c(0.24, 0.8),
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 
@@ -4810,7 +4812,7 @@ full_join(realm_tot, codes$real, 'code') |>
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9),
+    text = element_text(family = 'serif', size = 9),
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
   )
 
@@ -4848,7 +4850,7 @@ rbind(full_join(realm_disp, codes$real, 'code') |>
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9),
+    text = element_text(size = 9),
     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
   )
 
@@ -4861,7 +4863,7 @@ plot_grid(plot_grid(NULL,
                     rel_widths = c(0.2, 0.8, 0.8, 0.2), 
                     labels = c('', '(a)', '(b)', ''), 
                     label_size = 9, 
-                    label_fontfamily = 'Times New Roman', 
+                    #label_fontfamily = 'serif', 
                     label_fontface = 'plain', 
                     label_x = 0.15, 
                     label_y = 0.99), 
@@ -4870,13 +4872,13 @@ plot_grid(plot_grid(NULL,
                     nrow = 1, 
                     labels = c('(c)', '(d)'), 
                     label_size = 9, 
-                    label_fontfamily = 'Times New Roman', 
+                    #label_fontfamily = 'serif', 
                     label_fontface = 'plain', 
                     label_x = c(0.12, 0.135), 
                     label_y = 0.99),
           ncol = 1)
 
-ggsave('plot_type_island_realm.jpg', dpi = 1e3, width = 15, height = 10, units = 'cm')
+ggsave('plot_type_island_realm.pdf', dpi = 1e3, width = 15, height = 10, units = 'cm')
 
 
 avg_realms_est <- 
@@ -4938,7 +4940,7 @@ avg_realms_plot <-
     legend.background = element_blank(),
     legend.box.background = element_blank(), 
     legend.key.size = unit(4, 'mm'), 
-    text = element_text(family = 'Times New Roman')
+    text = element_text(family = 'serif')
   )
 
 
@@ -4950,7 +4952,8 @@ layout <-
   dfg
 '
 
-avg_realms_plot +
+fig_2 <- 
+  avg_realms_plot +
   plots_islands_realm$post_latitude_bird +
   labs(y = '', x = '') +
   plots_islands_realm$post_latitude_tot +
@@ -4965,8 +4968,13 @@ avg_realms_plot +
                   tag_prefix = '(', 
                   tag_suffix = ')')
 
+fig_2
+
 ggsave('figure_2.jpeg', width = 20, height = 18, units = 'cm', 
        dpi = 500)
+
+ggsave('figure_2.pdf', width = 20, height = 18, units = 'cm', 
+       dpi = 500, plot = fig_2)
 
 #====== map ======
 
@@ -5058,7 +5066,7 @@ world_land <- ne_download(scale = 50, type = "land",
     legend.position = 'top', 
     legend.title = element_blank(),
     legend.direction = 'vertical',
-    text = element_text(family = 'Times New Roman')
+    text = element_text(family = 'serif')
   )
 
 
@@ -5109,7 +5117,7 @@ map2 <-
                legend.position = 'top', 
                legend.title = element_blank(),
                legend.direction = 'vertical',
-               text = element_text(family = 'Times New Roman')
+               text = element_text(family = 'serif')
              )
          })
 
@@ -5146,7 +5154,7 @@ island_coords_probs$x_random <- rep(1, 43) + rnorm(43, 0, 0.02)
     axis.text.x = element_blank(),
     axis.text.y = element_text(size = 10),
     legend.position = c(0.6, 0.8), 
-    text = element_text(family = 'Times New Roman')
+    text = element_text(family = 'serif')
   )
   
 ggsave('map2.svg', width = 15, height = 15, dpi = 1e3, units = 'cm')
@@ -5177,7 +5185,7 @@ ggplot() +
     axis.line.y = element_line(linewidth = 0.25),
     axis.text.y = element_text(size = 10),
     legend.position = c(0.8, 0.9), 
-    text = element_text(family = 'Times New Roman')
+    text = element_text(family = 'serif')
   )
 
 ggsave('map2_2.svg', width = 7, height = 15, dpi = 1e3, units = 'cm')
@@ -5213,7 +5221,7 @@ ggplot() +
     axis.title.x = element_blank(), 
     axis.text = element_blank(),
     legend.position = 'none', 
-    text = element_text(family = 'Times New Roman')
+    text = element_text(family = 'serif')
   )
 
 
@@ -5230,7 +5238,7 @@ tibble(x = post_latitude_tot$beta$beta_lat) |>
         axis.line = element_line(linewidth = 0.25), 
         axis.ticks = element_line(linewidth = 0.25),
         axis.title.x = element_text(size = 15), 
-        text = element_text(family = 'Times New Roman'))
+        text = element_text(family = 'serif'))
 ggsave('map3.svg', width = 5, height = 5, dpi = 1e3, units = 'cm')
 
 beta_alt_plot <- 
@@ -5621,7 +5629,7 @@ beta_latitude <-
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title.x = element_text(size = 15), 
-        text = element_text(family = 'Times New Roman'))
+        text = element_text(family = 'serif'))
 
 plot_causal_effect_latitude <- 
   causal_effect_latitude |> 
@@ -5642,7 +5650,7 @@ plot_causal_effect_latitude <-
   theme_classic() +
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'))
+        text = element_text(family = 'serif'))
   
 
 # isolation
@@ -5743,7 +5751,7 @@ rbind(post_isolation_tot$beta |>
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title.x = element_text(size = 15), 
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none')
 
 plot_causal_isolation <- 
@@ -5768,7 +5776,7 @@ causal_effect_isolation |>
   theme_classic() +
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none')
 
 
@@ -5857,7 +5865,7 @@ beta_size <-
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title.x = element_text(size = 15), 
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none'
         )
 
@@ -5883,7 +5891,7 @@ causal_effect_size |>
   theme_classic() +
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none'
         )
 
@@ -6011,7 +6019,7 @@ beta_altitude <-
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title = element_text(size = 11), 
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none'
   )
 
@@ -6045,7 +6053,7 @@ causal_effect_alt |>
   theme(strip.background = element_blank(), 
         #strip.text = element_blank(),
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none',
         axis.title = element_text(size = 10)
         # axis.title.y = element_text(margin = margin(r = 1)),
@@ -6143,7 +6151,7 @@ beta_foot <-
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title = element_text(size = 11), 
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none'
   )
 
@@ -6177,7 +6185,7 @@ causal_effect_foot |>
   theme(strip.background = element_blank(), 
         #strip.text = element_blank(),
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none',
         axis.title = element_text(size = 10)
         # axis.title.y = element_text(margin = margin(r = 1)),
@@ -6294,7 +6302,7 @@ beta_bush <-
   theme(strip.background = element_blank(), 
         axis.line = element_line(linewidth = 0.35), 
         axis.title = element_text(size = 11), 
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none'
   )
 
@@ -6328,7 +6336,7 @@ causal_effect_bush |>
   theme(strip.background = element_blank(), 
         #strip.text = element_blank(),
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman'), 
+        text = element_text(family = 'serif'), 
         legend.position = 'none',
         axis.title = element_text(size = 10)
         # axis.title.y = element_text(margin = margin(r = 1)),
@@ -6383,7 +6391,7 @@ plot_scatter_isolation <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 plot_scatter_altitude <- 
@@ -6421,7 +6429,7 @@ plot_scatter_altitude <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 plot_scatter_bush <- 
@@ -6454,7 +6462,7 @@ plot_scatter_bush <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
   
 
@@ -6484,7 +6492,7 @@ plot_scatter_latitude <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 
@@ -6519,7 +6527,7 @@ plot_scatter_size <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 plot_scatter_humanF <- 
@@ -6546,7 +6554,7 @@ plot_scatter_humanF <-
     legend.position = 'none',
     legend.box.background = element_blank(), 
     legend.key.size = unit(2.5, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 9)
+    text = element_text(family = 'serif', size = 9)
   )
 
 
@@ -6668,12 +6676,13 @@ plot_beta_continuous <-
     legend.position = c(0.2, 0.1),
     legend.box.background = element_blank(), 
     legend.key.size = unit(3, 'mm'), 
-    text = element_text(family = 'Times New Roman', size = 12)
+    text = element_text(family = 'serif', size = 12)
   )
 
 plot_beta_continuous
   
 ggsave('figure_3.jpg', width = 10, height = 12.5, units = 'cm', dpi = 500)
+ggsave('figure_3.pdf', width = 10, height = 12.5, units = 'cm', dpi = 500)
 
 layout2 <- 
   '
@@ -6821,7 +6830,7 @@ ggplot(causal_df, aes(intervention, mu, ymin = li, ymax = ls,
   theme(strip.background = element_blank(), 
         strip.text = element_text(size = 9),
         axis.line = element_line(linewidth = 0.35),
-        text = element_text(family = 'Times New Roman', size = 10), 
+        text = element_text(family = 'serif', size = 10), 
         legend.position = 'top',
         legend.title = element_blank(),
         axis.title = element_text(size = 12),
@@ -6833,6 +6842,7 @@ ggplot(causal_df, aes(intervention, mu, ymin = li, ymax = ls,
 
 
 ggsave('figure_4.jpg', width = 20, height = 12, units = 'cm', dpi = 500)
+ggsave('figure_4.pdf', width = 20, height = 12, units = 'cm', dpi = 500)
 
 
 all_betas[all_betas$significant == T, ]
